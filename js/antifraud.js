@@ -263,6 +263,38 @@ const AntifraudManager = (() => {
     return await sha256(components.join("|||"));
   }
 
+  function sanitizeSelections(selections) {
+    if (!selections || typeof selections !== "object" || Array.isArray(selections)) {
+      throw new Error("Gecersiz oy verisi.");
+    }
+
+    const categoryMap = new Map();
+    CATEGORIES.forEach((category) => {
+      categoryMap.set(category.id, new Set(category.candidates.map((candidate) => candidate.id)));
+    });
+
+    const cleanedSelections = {};
+    const incomingKeys = Object.keys(selections);
+
+    if (incomingKeys.length !== CATEGORIES.length) {
+      throw new Error("Eksik veya gecersiz kategori secimi.");
+    }
+
+    for (const category of CATEGORIES) {
+      const selectedCandidate = selections[category.id];
+      if (typeof selectedCandidate !== "string" || !categoryMap.get(category.id).has(selectedCandidate)) {
+        throw new Error("Gecersiz aday secimi tespit edildi.");
+      }
+      cleanedSelections[category.id] = selectedCandidate;
+    }
+
+    if (Object.keys(cleanedSelections).length !== incomingKeys.length) {
+      throw new Error("Beklenmeyen secim verisi tespit edildi.");
+    }
+
+    return cleanedSelections;
+  }
+
   // --- Yerel Depolama (6 mekanizma) ---
 
   function setLS(key, val) {
@@ -369,15 +401,7 @@ const AntifraudManager = (() => {
       const voteDoc = await tx.get(voteRef);
 
       if (voteDoc.exists) {
-        // Kullanici daha once oy vermis ama yerel verisi kaybolmus
-        // Mevcut oy kaydini guncelle, kart numarasini koru
         const existingData = voteDoc.data();
-        tx.update(voteRef, {
-          selections: selections,
-          updatedAt: Date.now(),
-          fingerprintHash: fingerprintHash,
-          deviceId: deviceId
-        });
         return existingData.cardNumber;
       }
 
@@ -463,8 +487,9 @@ const AntifraudManager = (() => {
       throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
     }
 
+    const cleanedSelections = sanitizeSelections(selections);
     const visitorId = await getVisitorId();
-    const cardNumber = await saveVoteAtomically(visitorId, selections);
+    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections);
     markAsVotedLocally();
 
     return { visitorId, cardNumber };

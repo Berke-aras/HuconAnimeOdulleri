@@ -83,6 +83,10 @@ Bir kullanici tekrar oy vermek icin TUM bu katmanlari ayni anda atlatmasi gereki
 - **Referrer gizleme:** Tum sayfalarda `no-referrer` meta tagi
 - **iFrame engeli:** `X-Frame-Options: DENY` meta tagi
 
+Detayli fingerprint ve guvenlik inceleme notlari icin:
+
+- `GUVENLIK_RAPORU.md`
+
 ## Dosya Yapisi
 
 ```
