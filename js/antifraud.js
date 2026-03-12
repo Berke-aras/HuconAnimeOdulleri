@@ -44,20 +44,30 @@ const AntifraudManager = (() => {
   }
 
   async function getIPHash() {
-    try {
-      // Cloudflare trace üzerinden kullanicinin tam IP'sini alalim
-      const resp = await fetch("https://1.1.1.1/cdn-cgi/trace");
-      const text = await resp.text();
-      const ipMatch = text.match(/ip=([0-9a-f.:]+)/);
-      if (ipMatch && ipMatch[1]) {
-        // Gizlilik için IP'yi ham yazmak yerine bir "salt" ile hash'liyoruz.
-        // Boylece admin panelinde bile gercek IP gorunmez, ama eslesme tam calisir.
-        return await sha256(ipMatch[1] + "anime_vote_salt_2026");
-      }
-      return "none";
-    } catch (e) {
-      throw new Error("Ag kontrolü engellendi. Reklam engelleyicinizi (AdGuard vb.) kapatin.");
+    const providers = [
+      "https://1.1.1.1/cdn-cgi/trace",
+      "https://cloudflare.com/cdn-cgi/trace",
+      "https://api.ipify.org?format=json"
+    ];
+
+    for (const url of providers) {
+      try {
+        const resp = await fetch(url);
+        const text = await resp.text();
+        let ip = "";
+        if (url.includes("json")) {
+          ip = JSON.parse(text).ip;
+        } else {
+          const match = text.match(/ip=([0-9a-f.:]+)/);
+          if (match) ip = match[1];
+        }
+        if (ip) return await sha256(ip + "anime_vote_salt_2026");
+      } catch (e) {}
     }
+    
+    // Tüm IP servisleri blokluysa (AdGuard vb. çok katıysa)
+    console.warn("Ag kontrolü engellendi. Ag imzasi olmadan devam ediliyor.");
+    return "blocked_network";
   }
 
   // --- Parmak Izi ---
@@ -93,9 +103,11 @@ const AntifraudManager = (() => {
     let baseFp = "";
     try {
       if (typeof FingerprintJS !== "undefined") {
-        const fp = await FingerprintJS.load();
-        const result = await fp.get();
-        baseFp = result.visitorId;
+        try {
+          const fp = await FingerprintJS.load();
+          const result = await fp.get();
+          baseFp = result.visitorId;
+        } catch (e) { baseFp = await generateFallbackFingerprint(); }
       } else {
         baseFp = await generateFallbackFingerprint();
       }
@@ -103,15 +115,15 @@ const AntifraudManager = (() => {
       baseFp = await generateFallbackFingerprint();
     }
 
-    // Ileri Donanim Fingerprintlerini her halukarda bekle ve birlestir
-    const [advancedWebGL, audioFP, speechFP] = await Promise.all([
+    // Ileri Donanim Fingerprintlerini bekle
+    const signals = await Promise.allSettled([
       getAdvancedWebGLFingerprint(),
       getAudioContextFingerprint(),
       getSpeechVoicesFingerprint()
     ]);
 
-    // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
-    const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP + "|" + speechFP;
+    const sigData = signals.map(s => s.status === 'fulfilled' ? s.value : 'err');
+    const combinedRaw = baseFp + "|" + sigData.join("|");
     return await sha256(combinedRaw);
   }
 
