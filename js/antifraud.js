@@ -601,15 +601,24 @@ const AntifraudManager = (() => {
     // 2. 3/4 Eşleşme Mantığı (IP, Audio, WebGL, Font)
     // Audio bizim ana anahtarımız (Cross-browser için en stabil olan)
     
-    // Senaryo A: Donanım kalemleri birebir aynı
+    // Senaryo A: Donanım kalemlerinden en kararlı olan 3'ünün (Audio, WebGL, Font) eşleşmesi.
+    // CanvasHash'i buraya koymuyoruz çünkü gizli sekme gibi modlarda sapma yapabiliyor.
     const hardwareQuery = await db.collection("votes")
       .where("audioHash", "==", hashes.audioHash || "none")
       .where("webglHash", "==", hashes.webglHash || "none")
       .where("fontHash", "==", hashes.fontHash || "none")
-      .where("canvasHash", "==", hashes.canvasHash || "none")
-      .limit(1)
+      .limit(10)
       .get();
-    if (!hardwareQuery.empty) return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
+    
+    if (!hardwareQuery.empty) {
+      // Bulunan sonuçlar arasında CanvasHash kontrolü de yapalım (en az 1'i tutmalı)
+      for (const doc of hardwareQuery.docs) {
+        const v = doc.data();
+        if (v.canvasHash === hashes.canvasHash) return { id: doc.id, ...v };
+      }
+      // Eğer hiçbiri canvas ile tam tutmadıysa ilkini (donanım bazlı en yakın) döndürelim
+      return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
+    }
 
     // Senaryo B: IP aynı ve Donanimlarin çoğu aynı
     const ipQuery = await db.collection("votes")
@@ -627,8 +636,8 @@ const AntifraudManager = (() => {
       if (v.fontHash === hashes.fontHash) matchCount++;
       if (v.canvasHash === hashes.canvasHash) matchCount++;
 
-      // 5 sinyalden (IP+4 Donanim) en az 4'ü tutmalı (veya IP hariç 4 donanım tutmalı)
-      if (matchCount >= 4 || (matchCount >= 4 && v.ipHash !== ipHash)) {
+      // 5 sinyalden (IP+4 Donanim) en az 4'ü tutmalı
+      if (matchCount >= 4) {
         candidates.push({ id: doc.id, ...v });
       }
     }
@@ -649,7 +658,7 @@ const AntifraudManager = (() => {
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
     const hardwareHashes = await generateHardwareHashes();
-    const hardwareSignature = await sha256(hardwareHashes.canvasHash + hardwareHashes.audioHash + hardwareHashes.fontHash + hardwareHashes.webglHash);
+    const hardwareSignature = await generateHardwareSignature(); // Tek bir disiplin altina aldik
     const ipHash = await getIPHash();
     const clockDrift = getClockDrift();
     
@@ -807,11 +816,11 @@ const AntifraudManager = (() => {
       .where("audioHash", "==", hardwareHashes.audioHash || "none_a")
       .where("webglHash", "==", hardwareHashes.webglHash || "none_w")
       .where("fontHash", "==", hardwareHashes.fontHash || "none_f")
-      .where("canvasHash", "==", hardwareHashes.canvasHash || "none_c")
-      .limit(1)
+      .limit(5)
       .get();
     
     if (!hardwareQuery.empty) {
+      // Donanim eslesiyorsa (Canvas farkli olsa bile) supheli kabul et
       if (maxMatch < 4) maxMatch = 4;
     }
 
@@ -846,7 +855,8 @@ const AntifraudManager = (() => {
 
       // 1. Tekrar oy kontrolü
       const alreadyVotedStatus = await hasAlreadyVoted();
-      if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
+      if (alreadyVotedStatus) {
+        // visitor_match veya device_block fark etmeksizin engelleyelim
         throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
       }
 
