@@ -50,8 +50,8 @@ const AntifraudManager = (() => {
   }
 
   async function getVisitorId() {
+    let baseFp = "";
     try {
-      let baseFp = "";
       if (typeof FingerprintJS !== "undefined") {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
@@ -59,16 +59,22 @@ const AntifraudManager = (() => {
       } else {
         baseFp = await generateFallbackFingerprint();
       }
-      
-      // Ileri Donanim Fingerprintlerini de bekle ve birlestir
-      const advancedWebGL = await getAdvancedWebGLFingerprint();
-      const audioFP = await getAudioContextFingerprint();
+    } catch (e) {
+      baseFp = await generateFallbackFingerprint();
+    }
+    
+    try {
+      // Ileri Donanim Fingerprintlerini her halukarda bekle ve birlestir (Paralel olarak daha hizli yuklenir)
+      const [advancedWebGL, audioFP] = await Promise.all([
+        getAdvancedWebGLFingerprint(),
+        getAudioContextFingerprint()
+      ]);
       
       // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
       const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP;
       return await sha256(combinedRaw);
-    } catch (e) {
-      return await generateFallbackFingerprint();
+    } catch (err) {
+      return await sha256(baseFp); // En kotu senaryoda sadece baseFp'yi hashle
     }
   }
 
@@ -76,10 +82,14 @@ const AntifraudManager = (() => {
 
   async function getAdvancedWebGLFingerprint() {
     return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve("webgl-timeout"), 1000);
       try {
         const canvas = document.createElement("canvas");
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-        if (!gl) return resolve("no-webgl");
+        if (!gl) {
+          clearTimeout(timeout);
+          return resolve("no-webgl");
+        }
 
         // Basit Vertex Shader
         const vShader = gl.createShader(gl.VERTEX_SHADER);
@@ -103,8 +113,10 @@ const AntifraudManager = (() => {
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
         const locMap = gl.getAttribLocation(program, "p");
-        gl.enableVertexAttribArray(locMap);
-        gl.vertexAttribPointer(locMap, 2, gl.FLOAT, false, 0, 0);
+        if (locMap >= 0) {
+          gl.enableVertexAttribArray(locMap);
+          gl.vertexAttribPointer(locMap, 2, gl.FLOAT, false, 0, 0);
+        }
 
         // Ekran boyutu ve renk islemesi
         gl.viewport(0, 0, 8, 8);
@@ -123,12 +135,20 @@ const AntifraudManager = (() => {
           hash = hash & hash; 
         }
 
-        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
-        const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : "unknown";
-        const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "unknown";
+        let vendor = "unknown";
+        let renderer = "unknown";
+        try {
+          const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+          if (debugInfo) {
+            vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || "unknown";
+            renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "unknown";
+          }
+        } catch (extError) {}
 
+        clearTimeout(timeout);
         resolve(hash.toString(16) + "~" + vendor + "~" + renderer);
       } catch (e) {
+        clearTimeout(timeout);
         resolve("webgl-err");
       }
     });
@@ -136,9 +156,15 @@ const AntifraudManager = (() => {
 
   async function getAudioContextFingerprint() {
     return new Promise((resolve) => {
+      // Yavas mobil cihazlari da goz onunde bulundurarak 1000ms timeout
+      const timeout = setTimeout(() => resolve("audio-timeout"), 1000);
+
       try {
         const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-        if (!AudioContext) return resolve("no-audio");
+        if (!AudioContext) {
+          clearTimeout(timeout);
+          return resolve("no-audio");
+        }
 
         // 44100Hz'de 1 saniyelik buffer
         const context = new AudioContext(1, 44100, 44100);
@@ -162,16 +188,28 @@ const AntifraudManager = (() => {
         oscillator.start(0);
 
         context.oncomplete = (event) => {
-          const buffer = event.renderedBuffer.getChannelData(0);
-          let hash = 0;
-          for (let i = 4500; i < 5000; i++) {
-            hash += Math.abs(buffer[i]);
+          clearTimeout(timeout);
+          try {
+            const buffer = event.renderedBuffer.getChannelData(0);
+            let hash = 0;
+            for (let i = 4500; i < 5000; i++) {
+              hash += Math.abs(buffer[i]);
+            }
+            resolve(hash.toString());
+          } catch(err) {
+            resolve("audio-err");
           }
-          resolve(hash.toString());
         };
 
-        context.startRendering();
+        const renderPromise = context.startRendering();
+        if (renderPromise && typeof renderPromise.catch === "function") {
+            renderPromise.catch(() => {
+                clearTimeout(timeout);
+                resolve("audio-err");
+            });
+        }
       } catch (e) {
+        clearTimeout(timeout);
         resolve("audio-err");
       }
     });
