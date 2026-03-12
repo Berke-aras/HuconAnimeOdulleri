@@ -20,7 +20,8 @@ const AntifraudManager = (() => {
   let _isRevoting = false;
 
   // --- Proof of Work (PoW) ---
-  const POW_DIFFICULTY = 4; // Ilk 4 hex karakter '0' olmali (16-bit zorluk)
+  const POW_DIFFICULTY = 4; // Ilk 4 hex karakter '0' olmali (4 hex = 16-bit hash oneki)
+  const POW_MAX_ITERATIONS = 1000000; // Sonsuz donguyu onlemek icin ust sinir
   let _powChallenge = null;
   let _powPromise = null;
   let _powResult = null;
@@ -572,7 +573,7 @@ const AntifraudManager = (() => {
     const target = "0".repeat(POW_DIFFICULTY);
     let nonce = 0;
 
-    while (true) {
+    while (nonce < POW_MAX_ITERATIONS) {
       const hash = await sha256(challenge + ":" + nonce);
       if (hash.startsWith(target)) {
         return { nonce, hash, challenge };
@@ -583,6 +584,8 @@ const AntifraudManager = (() => {
         await new Promise(r => setTimeout(r, 0));
       }
     }
+
+    throw new Error("Proof of Work cozulemedi. Lutfen sayfayi yenileyip tekrar deneyin.");
   }
 
   async function saveVoteAtomically(visitorId, selections) {
