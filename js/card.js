@@ -548,17 +548,27 @@ function showShareToast(message) {
 let _voteData = null;
 
 (async function init() {
-  const data = getVoteData();
-  _voteData = data;
-
-  document.getElementById('loadingOverlay').classList.add('hidden');
-
+  let data = getVoteData();
+  
   if (!data || !data.accessToken || !data.selections || !data.cardNumber) {
-    document.getElementById('noDataSection').classList.remove('hidden');
-    return;
+    // Veri yoksa, donanim eslesmesi ile kurtarmayi dene
+    try {
+      const voted = await AntifraudManager.hasAlreadyVoted();
+      if (typeof voted === 'object' && voted.status === 'device_block' && voted.data) {
+        const d = voted.data;
+        const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
+        AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
+        data = { selections: d.selections, cardNumber: d.cardNumber, accessToken: accessToken };
+      }
+    } catch (e) {
+      console.warn("Kurtarma sirasinda hata:", e);
+    }
   }
 
-  if (Object.keys(data.selections).length === 0) {
+  _voteData = data;
+  document.getElementById('loadingOverlay').classList.add('hidden');
+
+  if (!data || !data.accessToken || !data.selections || !data.cardNumber || Object.keys(data.selections).length === 0) {
     document.getElementById('noDataSection').classList.remove('hidden');
     return;
   }

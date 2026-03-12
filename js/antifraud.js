@@ -243,10 +243,11 @@ const AntifraudManager = (() => {
           clearTimeout(timeout);
           try {
             const buffer = event.renderedBuffer.getChannelData(0);
-            // Daha saglam hash: birden fazla aralik kullan ve DJB2 hash ile birlestir
+            // Daha genis aralik ve daha kararlı hash (Sadece tam sayıları kullan)
             let hash = 5381;
-            for (let i = 4500; i < 5000; i++) {
-              hash = ((hash << 5) + hash) + (buffer[i] * 1000000 | 0);
+            for (let i = 4000; i < 6000; i += 2) {
+              const val = Math.floor(Math.abs(buffer[i]) * 10000);
+              hash = ((hash << 5) + hash) + val;
               hash = hash & 0x7fffffff;
             }
             resolve(hash.toString(36));
@@ -562,45 +563,49 @@ const AntifraudManager = (() => {
   }
 
   async function checkDeviceInFirestore(deviceId, ipHash, hashes) {
-    // 1. Kesin DeviceId eslesmesi (Ayni tarayici) - HER ZAMAN ENGELLE
+    const match = await findMatchedVoteData(deviceId, ipHash, hashes);
+    return !!match;
+  }
+
+  async function findMatchedVoteData(deviceId, ipHash, hashes) {
+    // 1. Kesin DeviceId eslesmesi (Ayni tarayici)
     const exactQuery = await db.collection("votes")
       .where("deviceId", "==", deviceId)
       .where("ipHash", "==", ipHash)
       .limit(1)
       .get();
     
-    if (!exactQuery.empty) return true;
+    if (!exactQuery.empty) return { id: exactQuery.docs[0].id, ...exactQuery.docs[0].data() };
 
     // 2. 3/4 Eşleşme Mantığı (IP, Audio, WebGL, Font)
-    // Firestore'da 'or' sorgulari kısıtlı oldugu icin akilli bir yaklaşım kullanıyoruz.
+    // Audio bizim ana anahtarımız (Cross-browser için en stabil olan)
     
-    // Senaryo A: Donanım birebir aynı ama IP farklı (Mobil veriye geçiş vb.)
+    // Senaryo A: Donanım kalemleri birebir aynı (Audio+WebGL+Font)
     const hardwareQuery = await db.collection("votes")
       .where("audioHash", "==", hashes.audioHash)
       .where("webglHash", "==", hashes.webglHash)
       .where("fontHash", "==", hashes.fontHash)
       .limit(1)
       .get();
-    if (!hardwareQuery.empty) return true;
+    if (!hardwareQuery.empty) return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
 
-    // Senaryo B: IP aynı ve donanım kalemlerinden en az 2 tanesi aynı
-    // Bu durumda IP + 2 Donanım = 3/4 eşleşme olur.
+    // Senaryo B: IP aynı ve Audio + (WebGL veya Font) aynı
     const ipQuery = await db.collection("votes")
       .where("ipHash", "==", ipHash)
-      .limit(10) // Aynı IP'den gelen son 10 oyu kontrol et
+      .limit(10)
       .get();
 
     for (const doc of ipQuery.docs) {
       const v = doc.data();
-      let matchCount = 1; // IP zaten eşleşiyor
+      let matchCount = 1; // IP eşleşiyor
       if (v.audioHash === hashes.audioHash) matchCount++;
       if (v.webglHash === hashes.webglHash) matchCount++;
       if (v.fontHash === hashes.fontHash) matchCount++;
 
-      if (matchCount >= 3) return true;
+      if (matchCount >= 3) return { id: doc.id, ...v };
     }
 
-    return false;
+    return null;
   }
 
   async function saveVoteAtomically(visitorId, selections, trustData = {}) {
@@ -719,11 +724,12 @@ const AntifraudManager = (() => {
     const deviceId = await generateDeviceFingerprint();
     const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
-    const deviceExists = await checkDeviceInFirestore(deviceId, ipHash, hardwareHashes);
+    const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
     
-    if (deviceExists) {
+    if (matchedData) {
       markAsVotedLocally();
-      return "device_block"; 
+      // Gizli sekme vb. durumlarda geri donen data ile sayfada karti gosterebiliriz
+      return { status: "device_block", data: matchedData }; 
     }
 
     return false;
@@ -794,10 +800,7 @@ const AntifraudManager = (() => {
 
     // Gonderim oncesi son bir kez daha tekrar oy kontrolu
     const alreadyVotedStatus = await hasAlreadyVoted();
-    if (alreadyVotedStatus === true) {
-      throw new Error("Bu tarayicidan zaten oy verilmis.");
-    }
-    if (alreadyVotedStatus === "device_block") {
+    if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
       throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
     }
 
