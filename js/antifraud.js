@@ -721,11 +721,23 @@ const AntifraudManager = (() => {
     
     // 2. Tarayici bazli Firestore kontrolü (visitorId)
     // Bu durumda HARD BLOCK uyguluyoruz çünkü tarayıcı kimliği tam eşleşiyor.
-    const visitorId = await getVisitorId();
-    const storedData = await checkFirestore(visitorId);
-    if (storedData) {
-      markAsVotedLocally();
-      return { status: 'visitor_match', data: storedData };
+    let visitorId = "";
+    try {
+      visitorId = await getVisitorId();
+    } catch (e) {
+      console.warn("VisitorId generation failed:", e);
+    }
+
+    if (visitorId) {
+      try {
+        const storedData = await checkFirestore(visitorId);
+        if (storedData) {
+          markAsVotedLocally();
+          return { status: 'visitor_match', data: storedData };
+        }
+      } catch (e) {
+        console.warn("checkFirestore failed (blocked?):", e);
+      }
     }
 
     if (localFlag) return true; // Firestore'da yoksa ama localde varsa (belki henüz senkronize olmadı?)
@@ -737,16 +749,23 @@ const AntifraudManager = (() => {
       return false;
     }
 
-    const deviceId = await generateDeviceFingerprint();
-    const hardwareHashes = await generateHardwareHashes();
-    const ipHash = await getIPHash();
-    const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
-    
-    if (matchedData) {
-      markAsVotedLocally();
-      // Gizli sekme vb. durumlarda geri donen data ile sayfada karti gosterebiliriz
-      return { status: "device_block", data: matchedData }; 
+    try {
+      const deviceId = await generateDeviceFingerprint();
+      const hardwareHashes = await generateHardwareHashes();
+      const ipHash = await getIPHash();
+      const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
+      
+      if (matchedData) {
+        markAsVotedLocally();
+        // Gizli sekme vb. durumlarda geri donen data ile sayfada karti gosterebiliriz
+        return { status: "device_block", data: matchedData }; 
+      }
+    } catch (e) {
+      console.error("Advanced fingerprint matching failed:", e);
+      // Bu adım başarısız olursa kullanıcının devam etmesine izin ver (veya blokla, ama şuan izin veriyoruz)
     }
+
+    return false;
 
     return false;
   }
