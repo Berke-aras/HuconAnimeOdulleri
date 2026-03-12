@@ -870,8 +870,8 @@ const AntifraudManager = (() => {
     if (matchedData) {
       markAsVotedLocally();
       // VERİ GERİ ÇEKME (Recovery): 
-      // Safari gizli sekme sinyallerin çoğunu bozduğu için (Audio, Canvas, Screen) 
-      // 3/5 baraji hem blok hem de veri kurtarma için en ideal seviyedir.
+      // 7 sinyalden 3 tanesinin eşleşmesi (3/7) Safari ve diğer 
+      // agresif tarayıcı taktiklerini aşmak için en ideal seviyedir.
       if (matchedData._matchCount >= 3) {
         return { status: "device_block", data: matchedData };
       }
@@ -897,11 +897,14 @@ const AntifraudManager = (() => {
       if(v.webglHash === hardwareHashes.webglHash) matchCount++;
       if(v.fontHash === hardwareHashes.fontHash) matchCount++;
       if(v.canvasHash === hardwareHashes.canvasHash) matchCount++;
+      if(v.voicesHash === hardwareHashes.voicesHash) matchCount++;
+      if(v.localIpHash === hardwareHashes.localIpHash) matchCount++;
       
       if(matchCount > maxMatch) maxMatch = matchCount;
     }
 
     // IP disindaki donanim eslesmelerine de bakalim
+    // En kararlı 3 sinyal (Audio, WebGL, Font) üzerinden kontrol
     const hardwareQuery = await db.collection("votes")
       .where("audioHash", "==", hardwareHashes.audioHash || "none_a")
       .where("webglHash", "==", hardwareHashes.webglHash || "none_w")
@@ -910,17 +913,26 @@ const AntifraudManager = (() => {
       .get();
     
     if (!hardwareQuery.empty) {
-      // Donanim eslesiyorsa (Canvas farkli olsa bile) supheli kabul et
-      if (maxMatch < 4) maxMatch = 4;
+      // Donanim eslesiyorsa (IP farkli olsa bile) supheli kabul et
+      // Bu adaylar icinden en yüksek matchCount'u bulmaya calis
+      for(const doc of hardwareQuery.docs) {
+        const v = doc.data();
+        let matchCount = (v.ipHash === ipHash) ? 1 : 0;
+        matchCount += 3; // Audio, WebGL, Font esleşti
+        if(v.canvasHash === hardwareHashes.canvasHash) matchCount++;
+        if(v.voicesHash === hardwareHashes.voicesHash) matchCount++;
+        if(v.localIpHash === hardwareHashes.localIpHash) matchCount++;
+        if(matchCount > maxMatch) maxMatch = matchCount;
+      }
     }
 
-    // 5 sinyal üzerinden (IP, Audio, WebGL, Font, Canvas)
+    // 7 sinyal üzerinden (IP + 6 Donanim)
     if (maxMatch >= 4) {
-      return { trustScore: "low", suspicionReason: "4plus_match_block_bypass" };
+      return { trustScore: "low", suspicionReason: "strict_hardware_match" };
     } else if (maxMatch === 3) {
-      return { trustScore: "low", suspicionReason: "3_of_5_match" };
+      return { trustScore: "low", suspicionReason: "3_of_7_match" };
     } else if (maxMatch === 2) {
-      return { trustScore: "high", suspicionReason: "potential_match" };
+      return { trustScore: "high", suspicionReason: "possible_device_similarity" };
     }
 
     return {
