@@ -514,14 +514,11 @@ function shareX() {
   const text = encodeURIComponent(SHARE_TEXT);
   const hashtags = encodeURIComponent(SHARE_HASHTAGS);
   const url = encodeURIComponent(siteUrl);
-  const shareWindow = window.open(
+  window.open(
     `https://x.com/intent/tweet?text=${text}&hashtags=${hashtags}&url=${url}`,
     '_blank',
     'width=550,height=420,noopener,noreferrer'
   );
-  if (shareWindow) {
-    shareWindow.opener = null;
-  }
 }
 
 function showShareToast(message) {
