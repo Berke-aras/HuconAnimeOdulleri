@@ -17,10 +17,24 @@ const AntifraudManager = (() => {
   let _votingStartedAt = 0;
 
   async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
+    if (!message) return "empty";
+    const msgBuffer = new TextEncoder().encode(String(message));
     const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Cihazın sistem saati ile yüksek performanslı sayaç arasındaki sapma.
+  // Bu değer her cihazda minik farklar gösterir (Clock Drift).
+  function getClockDrift() {
+    try {
+      const t1 = performance.now();
+      const d1 = Date.now();
+      // Milisaniye bazında minik bir sapma yakalamaya çalışıyoruz
+      return (d1 - t1).toFixed(3);
+    } catch (e) {
+      return "0";
+    }
   }
 
   async function getIPHash() {
