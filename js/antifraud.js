@@ -23,6 +23,23 @@ const AntifraudManager = (() => {
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
+  async function getIPHash() {
+    try {
+      // Cloudflare trace üzerinden kullanicinin tam IP'sini alalim
+      const resp = await fetch("https://1.1.1.1/cdn-cgi/trace");
+      const text = await resp.text();
+      const ipMatch = text.match(/ip=([0-9a-f.:]+)/);
+      if (ipMatch && ipMatch[1]) {
+        // Gizlilik için IP'yi ham yazmak yerine bir "salt" ile hash'liyoruz.
+        // Boylece admin panelinde bile gercek IP gorunmez, ama eslesme tam calisir.
+        return await sha256(ipMatch[1] + "anime_vote_salt_2026");
+      }
+      return "none";
+    } catch (e) {
+      return "err";
+    }
+  }
+
   // --- Parmak Izi ---
 
   async function generateFallbackFingerprint() {
@@ -386,23 +403,27 @@ const AntifraudManager = (() => {
       }
     } catch (e) {}
 
-    // Safari gizli sekme vs Normal sekme vs Opera uclemesinde tam eslesme icin
-    // hicbir sekilde cozunurluk (width/height - zoom veya UI yuzunden degisebilir) kullanmiyoruz!
-    // Sadece DONANIMA ve ISLETIM SISTEMINE fiziksel olarak kazinmis verileri kodluyoruz.
+    // Audio Fingerprint (Cross-browser icin cok kararlidir)
+    const audioFP = await getAudioContextFingerprint();
+    // Font ve WebGL Donanim bilgileri (Benzersizligi artirir)
+    const fontFP = getFontFingerprint();
+    const webglHardware = getWebGLFingerprint();
 
-    // Not: platform ("MacIntel" vs "Mac") tarayiciya gore degisebiliyor. O da kaldirildi.
+    // Sadece DONANIMA ve ISLETIM SISTEMINE fiziksel olarak kazinmis verileri kodluyoruz.
     const components = [
       screen.colorDepth || 24,           // Renk derinligi sabittir
       navigator.hardwareConcurrency || 0,// Cekirdek sayisi sabittir
       navigator.maxTouchPoints || 0,     // Dokunmatik limit sabittir
       navigator.deviceMemory || 0,       // RAM bilgisi sabittir
-      new Date().getTimezoneOffset(),    // Saat dilimi sabittir (VPN etkilemez)
+      new Date().getTimezoneOffset(),    // Saat dilimi sabittir
       connectionInfo,
+      audioFP,                           // Donanim tabanli ses isleme imzasi
+      fontFP,                            // Yuklu font listesi (OS bazli)
+      webglHardware,                     // Ekran karti modeli (Unmasked)
       navigator.pdfViewerEnabled !== undefined ? navigator.pdfViewerEnabled : "na"
     ];
 
     // Ekran genisligini cok kaba bir sekilde ele alalim (100 px tolerans payiyla) 
-    // Boylece ufak UI veya zoom farkliliklarini ezip gecer, ama en azindan PC ile Mobili ayirir.
     const roughW = Math.round(Math.max(screen.width, screen.height) / 100) * 100;
     const roughH = Math.round(Math.min(screen.width, screen.height) / 100) * 100;
     components.push(roughW + "x" + roughH);
@@ -537,9 +558,20 @@ const AntifraudManager = (() => {
     return doc.exists;
   }
 
-  async function saveVoteAtomically(visitorId, selections) {
+  async function checkDeviceInFirestore(deviceId, ipHash) {
+    // IP Hash + DeviceId kombinasyonu ile kesin ve güvenli eşleşme
+    const query = await db.collection("votes")
+      .where("deviceId", "==", deviceId)
+      .where("ipHash", "==", ipHash)
+      .limit(1)
+      .get();
+    return !query.empty;
+  }
+
+  async function saveVoteAtomically(visitorId, selections, trustData = {}) {
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
+    const ipHash = await getIPHash();
     
     // Admin paneli icin detayli donanim bilgisi (insan tarafindan okunabilir)
     const deviceData = {
@@ -568,6 +600,9 @@ const AntifraudManager = (() => {
           updatedAt: Date.now(),
           fingerprintHash: fingerprintHash,
           deviceId: deviceId,
+          ipHash: ipHash,
+          trustScore: trustData.trustScore || "high",
+          suspicionReason: trustData.suspicionReason || null,
           deviceData: deviceData,
           userAgent: navigator.userAgent
         });
@@ -588,6 +623,9 @@ const AntifraudManager = (() => {
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         fingerprintHash: fingerprintHash,
         deviceId: deviceId,
+        ipHash: ipHash,
+        trustScore: trustData.trustScore || "high",
+        suspicionReason: trustData.suspicionReason || null,
         deviceData: deviceData,
         userAgent: navigator.userAgent,
         cardNumber: newCount,
@@ -628,20 +666,58 @@ const AntifraudManager = (() => {
       return false;
     }
 
+    // 1. Yerel depo kontrolleri (Hizli)
     if (getVotedLS()) return true;
     if (getCookie()) return true;
     if (getWindowName()) return true;
     try { if (await getIDB()) return true; } catch (e) { }
     try { if (await getCacheAPI()) return true; } catch (e) { }
 
+    // 2. Tarayici bazli Firestore kontrolü (visitorId)
+    // Bu durumda HARD BLOCK uyguluyoruz çünkü tarayıcı kimliği tam eşleşiyor.
     const visitorId = await getVisitorId();
-    const exists = await checkFirestore(visitorId);
-    if (exists) {
+    const visitorExists = await checkFirestore(visitorId);
+    if (visitorExists) {
       markAsVotedLocally();
       return true;
     }
 
+    // 3. Gizli sekme / Cross-browser / IP-Device Kontrolü (KESIN ENGELLEME)
+    // Revote modundaysa bu kontrolü de atlıyoruz
+    if (isRevoteMode()) {
+      clearRevoteMode();
+      return false;
+    }
+
+    const deviceId = await generateDeviceFingerprint();
+    const ipHash = await getIPHash();
+    const deviceExists = await checkDeviceInFirestore(deviceId, ipHash);
+    
+    if (deviceExists) {
+      markAsVotedLocally();
+      // submitVote icinde ozellestirilmis hata mesaji vermek icin 
+      // bir flag set edebiliriz veya direkt true donebiliriz.
+      return "device_block"; 
+    }
+
     return false;
+  }
+
+  async function checkSuspicionStatus() {
+    const deviceId = await generateDeviceFingerprint();
+    const ipHash = await getIPHash();
+    const exists = await checkDeviceInFirestore(deviceId, ipHash);
+
+    if (exists) {
+      return {
+        trustScore: "low",
+        suspicionReason: "device_ip_match"
+      };
+    }
+    return {
+      trustScore: "high",
+      suspicionReason: null
+    };
   }
 
   function markVotingStarted() {
@@ -657,9 +733,21 @@ const AntifraudManager = (() => {
       throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
     }
 
+    // Gonderim oncesi son bir kez daha tekrar oy kontrolu
+    const alreadyVotedStatus = await hasAlreadyVoted();
+    if (alreadyVotedStatus === true) {
+      throw new Error("Bu tarayicidan zaten oy verilmis.");
+    }
+    if (alreadyVotedStatus === "device_block") {
+      throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
+    }
+
+    // Supheli durum kontrolu (Marking)
+    const trustData = await checkSuspicionStatus();
+
     const cleanedSelections = sanitizeSelections(selections);
     const visitorId = await getVisitorId();
-    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections);
+    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections, trustData);
     markAsVotedLocally();
 
     return { visitorId, cardNumber };
@@ -723,6 +811,7 @@ const AntifraudManager = (() => {
   return {
     getVisitorId,
     hasAlreadyVoted,
+    checkSuspicionStatus,
     submitVote,
     markVotingStarted,
     generateAccessToken,
@@ -730,7 +819,20 @@ const AntifraudManager = (() => {
     getVoteData,
     clearLocalVoteData,
     enableRevoteMode,
+    clearRevoteMode,
     sha256,
+    getIPHash,
     SELECTIONS_KEY
   };
 })();
+
+// Hatira sayfasindan tekrar oy verme fonksiyonu
+async function hatiraRevote(e) {
+  if (e) e.preventDefault();
+  if (!confirm('Mevcut oyunuzu güncellemek ve tekrar oy vermek istiyor musunuz?')) return;
+  try {
+    await AntifraudManager.clearLocalVoteData();
+    AntifraudManager.enableRevoteMode();
+  } catch (err) {}
+  window.location.href = 'oylama.html';
+}

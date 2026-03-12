@@ -61,6 +61,28 @@
           Tekrar Oy Ver
         </button>
       </div>
+
+      <!-- FAQ / Destek -->
+      <div class="faq-section" style="margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border-color); text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          Henüz oy vermediniz mi?
+        </h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+          Eğer bu cihazdan daha önce oy vermediyseniz ancak bu uyarıyı görüyorsanız, sistemimiz ağınızdaki başka bir cihazı yanlışlıkla sizinle eşleştirmiş olabilir. Lütfen şunları deneyin:
+        </p>
+        <ul style="font-size: 0.85rem; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; margin-bottom: 24px;">
+          <li>Wi-Fi'ı kapatıp mobil veri (4G/5G) üzerinden tekrar deneyin.</li>
+          <li>Tarayıcı önbelleğini temizleyip sayfayı yenileyin.</li>
+          <li>Varsa VPN veya Proxy bağlantısını kapatın.</li>
+        </ul>
+        <div style="background: rgba(245, 158, 11, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.2);">
+          <p style="font-size: 0.85rem; color: var(--accent-orange); margin: 0; font-weight: 500;">
+            Hala sorun yaşıyorsanız, Instagram üzerinden bize ulaşın: 
+            <a href="https://instagram.com/hucon_26" target="_blank" style="text-decoration: underline; color: inherit; font-weight: bold;">@hucon_26</a>
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -110,6 +132,18 @@
       <h2>Secimlerini Onayla</h2>
       <p class="confirm-subtitle">Son bir kez kontrol et, oylar gonderildikten sonra degistirilemez!</p>
       <div class="confirm-list" id="confirmList"></div>
+      
+      <!-- KVKK Onay -->
+      <div class="kvkk-consent-wrap" style="margin: 24px 0; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--border-color); text-align: left;">
+        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; user-select: none;">
+          <input type="checkbox" id="kvkkCheckbox" style="width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent-orange);">
+          <span style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
+            <a href="kvkk.html" target="_blank" style="color: var(--accent-orange); text-decoration: underline;">Aydınlatma Metni</a>'ni okudum. 
+            Tekrarlı oy kullanımını önlemek amacıyla teknik verilerimin (IP hash ve cihaz imzası) işlenmesini kabul ediyorum.
+          </span>
+        </label>
+      </div>
+
       <div id="recaptchaContainer" style="display:flex;justify-content:center;margin:24px 0;">
         <div id="recaptchaWidget"></div>
       </div>

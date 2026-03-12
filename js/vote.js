@@ -339,12 +339,30 @@ function showConfirmScreen() {
   });
 
   // Turnstile widget'ini onay ekraninda renderla
-  setTimeout(() => renderTurnstile(), 100);
+  setTimeout(() => {
+    renderTurnstile();
+    // KVKK checkbox dinleyici ekle
+    const checkbox = document.getElementById('kvkkCheckbox');
+    if (checkbox) {
+      checkbox.checked = false; // Reset on screen show
+      checkbox.addEventListener('change', updateSubmitButtonState);
+      updateSubmitButtonState();
+    }
+  }, 100);
 }
 
 function backToVoting() {
   currentCategoryIndex = CATEGORIES.length - 1;
   renderCategory(true);
+}
+
+function updateSubmitButtonState() {
+  const checkbox = document.getElementById('kvkkCheckbox');
+  const submitBtn = document.getElementById('submitBtn');
+  if (checkbox && submitBtn) {
+    submitBtn.disabled = !checkbox.checked;
+    submitBtn.style.opacity = checkbox.checked ? '1' : '0.5';
+  }
 }
 
 async function submitVotes() {
@@ -360,6 +378,12 @@ async function submitVotes() {
       setTimeout(() => { recaptchaContainer.style.outline = 'none'; }, 3000);
       return;
     }
+  }
+
+  const checkbox = document.getElementById('kvkkCheckbox');
+  if (checkbox && !checkbox.checked) {
+    alert('Lutfen Aydinlatma Metni\'ni onaylayin.');
+    return;
   }
 
   submitBtn.disabled = true;

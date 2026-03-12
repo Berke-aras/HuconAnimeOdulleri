@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KVKK ve Aydınlatma Metni - Anime Oylama</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .legal-content {
+      max-width: 800px;
+      margin: 100px auto;
+      padding: 40px;
+      background: var(--bg-card);
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      line-height: 1.6;
+    }
+    .legal-content h1 { margin-bottom: 24px; color: var(--text-primary); }
+    .legal-content h2 { margin-top: 32px; margin-bottom: 16px; color: var(--accent-secondary); font-size: 1.25rem; }
+    .legal-content p { margin-bottom: 16px; color: var(--text-secondary); }
+    .legal-content ul { margin-bottom: 16px; padding-left: 20px; color: var(--text-secondary); }
+    .legal-content li { margin-bottom: 8px; }
+    .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-orange); text-decoration: none; margin-bottom: 24px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="legal-content">
+    <a href="javascript:history.back()" class="back-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      Geri Dön
+    </a>
+    
+    <h1>KVKK ve Aydınlatma Metni</h1>
+    
+    <p>Anime Oylama 2026 olarak, kişisel verilerinizin güvenliği ve şeffaflık bizim için önceliklidir. Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) ve Avrupa Genel Veri Koruma Yönetmeliği (GDPR) uyarınca hazırlanmıştır.</p>
+
+    <h2>1. İşlenen Veriler ve Amaç</h2>
+    <p>Oylama sistemimizin adil ve güvenilir kalması amacıyla aşağıdaki teknik veriler işlenmektedir:</p>
+    <ul>
+      <li><strong>Hizmet Verisi:</strong> IP adresinizin kriptografik özeti (Hash). Açık IP adresiniz saklanmaz.</li>
+      <li><strong>Teknik Cihaz Bilgisi:</strong> Cihaz parmak izi (AudioContext, GPU modeli, yüklü fontlar gibi anonim donanım sinyalleri).</li>
+      <li><strong>Kullanım Verisi:</strong> Oylama zamanı ve seçilen adaylar.</li>
+    </ul>
+    <p>Bu veriler <strong>sadece oylama mükerrerliğini (hileli oyları) engellemek</strong> ve oylama istatistiklerini oluşturmak amacıyla işlenir.</p>
+
+    <h2>2. Veri Saklama ve Güvenlik</h2>
+    <p>Verileriniz Google Cloud Firestore altyapısında, endüstri standardı şifreleme yöntemleriyle saklanmaktadır. IP adresiniz gibi hassas veriler asla "açık yazı" (plain text) olarak kaydedilmez; sadece geri döndürülemez bir özeti (SHA-256 Hash) tutulur.</p>
+
+    <h2>3. Çerezler (Cookies)</h2>
+    <p>Sitemiz, oylama oturumunuzu yönetmek ve mükerrer oy kullanımını teknik olarak engellemek adına gerekli (essential) çerezler kullanmaktadır. Bu çerezler reklam amaçlı veya pazarlama odaklı veriler içermez.</p>
+
+    <h2>4. Haklarınız</h2>
+    <p>KVKK uyarınca, verilerinizin işlenip işlenmediğini öğrenme, verileriniz işlenmişse bilgi talep etme ve hatalı verilerin düzeltilmesini isteme hakkına sahipsiniz. Oylama süreci bittiğinde, anti-fraud amaçlı tutulan teknik veriler sistemden temizlenecektir.</p>
+
+    <p style="margin-top: 40px; font-size: 0.9rem; opacity: 0.7;">Son Güncelleme: 12 Mart 2026</p>
+  </div>
+</body>
+</html>
