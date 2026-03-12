@@ -26,19 +26,20 @@ const AntifraudManager = (() => {
 
   function getClockDrift() {
     let lastDrift = null;
-    // Tek bir ölçüm yerine birkaç mikrosaniyelik farkla ölçüp doğruluğu artıralım
     for (let i = 0; i < 3; i++) {
       try {
         const t1 = performance.now();
         const d1 = Date.now();
-        const drift = (d1 - t1).toFixed(3);
-        if (drift !== "0.000") {
-          lastDrift = drift;
-          break;
+        if (typeof t1 === 'number' && typeof d1 === 'number' && !isNaN(t1) && !isNaN(d1)) {
+          const drift = (d1 - t1).toFixed(3);
+          if (drift !== "0.000") {
+            lastDrift = drift;
+            break;
+          }
         }
       } catch (e) {}
     }
-    if (!lastDrift) throw new Error("Cihaz zamanlamasina ulasilamadi. Lutfen sayfayi yenileyin.");
+    if (!lastDrift) throw new Error("Cihaz zamanlamasina ulasilamadi (Clock Drift). Lutfen sayfayi yenileyin.");
     return lastDrift;
   }
 
@@ -438,8 +439,9 @@ const AntifraudManager = (() => {
   }
 
   async function generateHardwareSignature() {
-    const { audioHash, fontHash, webglHash, hardwareProfile } = await generateHardwareHashes();
-    return await sha256(audioHash + fontHash + webglHash + hardwareProfile);
+    const hh = await generateHardwareHashes();
+    // Tum donanim kalemlerini kullanarak imza üret (Geriye donuk uyumluluk ve tam kapsama icin)
+    return await sha256([hh.audioHash, hh.fontHash, hh.webglHash, hh.canvasHash, hh.hardwareProfile].join("|"));
   }
 
   async function generateDeviceFingerprint() {
@@ -599,18 +601,19 @@ const AntifraudManager = (() => {
     // 2. 3/4 Eşleşme Mantığı (IP, Audio, WebGL, Font)
     // Audio bizim ana anahtarımız (Cross-browser için en stabil olan)
     
-    // Senaryo A: Donanım kalemleri birebir aynı (Audio+WebGL+Font)
+    // Senaryo A: Donanım kalemleri birebir aynı
     const hardwareQuery = await db.collection("votes")
-      .where("audioHash", "==", hashes.audioHash)
-      .where("webglHash", "==", hashes.webglHash)
-      .where("fontHash", "==", hashes.fontHash)
+      .where("audioHash", "==", hashes.audioHash || "none")
+      .where("webglHash", "==", hashes.webglHash || "none")
+      .where("fontHash", "==", hashes.fontHash || "none")
+      .where("canvasHash", "==", hashes.canvasHash || "none")
       .limit(1)
       .get();
     if (!hardwareQuery.empty) return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
 
-    // Senaryo B: IP aynı ve Audio + (WebGL veya Font) aynı
+    // Senaryo B: IP aynı ve Donanimlarin çoğu aynı
     const ipQuery = await db.collection("votes")
-      .where("ipHash", "==", ipHash)
+      .where("ipHash", "==", ipHash || "none")
       .limit(10)
       .get();
       
@@ -799,12 +802,12 @@ const AntifraudManager = (() => {
       if(matchCount > maxMatch) maxMatch = matchCount;
     }
 
-    // IP disindaki donanim eslesmelerine de bakalim (Farkli IP, ayni cihaz)
+    // IP disindaki donanim eslesmelerine de bakalim
     const hardwareQuery = await db.collection("votes")
-      .where("audioHash", "==", hardwareHashes.audioHash)
-      .where("webglHash", "==", hardwareHashes.webglHash)
-      .where("fontHash", "==", hardwareHashes.fontHash)
-      .where("canvasHash", "==", hardwareHashes.canvasHash)
+      .where("audioHash", "==", hardwareHashes.audioHash || "none_a")
+      .where("webglHash", "==", hardwareHashes.webglHash || "none_w")
+      .where("fontHash", "==", hardwareHashes.fontHash || "none_f")
+      .where("canvasHash", "==", hardwareHashes.canvasHash || "none_c")
       .limit(1)
       .get();
     
