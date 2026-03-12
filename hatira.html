@@ -39,7 +39,10 @@
       <script>
         async function hatiraRevote(e) {
           e.preventDefault();
-          try { await AntifraudManager.clearLocalVoteData(); } catch(err) {}
+          try { 
+            await AntifraudManager.clearLocalVoteData(); 
+            AntifraudManager.enableRevoteMode();
+          } catch(err) {}
           window.location.href = 'oylama.html';
         }
       </script>

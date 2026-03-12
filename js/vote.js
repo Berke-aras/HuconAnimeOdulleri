@@ -90,6 +90,7 @@ async function revote() {
   if (!confirm('Oylarinizi sifirlamak ve tekrar oy vermek istediginize emin misiniz?')) return;
   try {
     await AntifraudManager.clearLocalVoteData();
+    AntifraudManager.enableRevoteMode();
   } catch (e) {}
   window.location.reload();
 }
