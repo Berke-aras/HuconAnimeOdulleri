@@ -540,6 +540,17 @@ const AntifraudManager = (() => {
   async function saveVoteAtomically(visitorId, selections) {
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
+    
+    // Admin paneli icin detayli donanim bilgisi (insan tarafindan okunabilir)
+    const deviceData = {
+      memory: navigator.deviceMemory || "bilinmiyor",
+      cores: navigator.hardwareConcurrency || "bilinmiyor",
+      touch: navigator.maxTouchPoints || 0,
+      pdf: navigator.pdfViewerEnabled || false,
+      screen: `${screen.width}x${screen.height}`,
+      timezone: new Date().getTimezoneOffset(),
+      languages: navigator.languages ? navigator.languages.join(",") : navigator.language
+    };
 
     const counterRef = db.collection("meta").doc("counter");
     const voteRef = db.collection("votes").doc(visitorId);
@@ -556,7 +567,9 @@ const AntifraudManager = (() => {
           selections: selections,
           updatedAt: Date.now(),
           fingerprintHash: fingerprintHash,
-          deviceId: deviceId
+          deviceId: deviceId,
+          deviceData: deviceData,
+          userAgent: navigator.userAgent
         });
         return existingData.cardNumber;
       }
@@ -575,7 +588,8 @@ const AntifraudManager = (() => {
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         fingerprintHash: fingerprintHash,
         deviceId: deviceId,
-        userAgent: navigator.userAgent.substring(0, 200),
+        deviceData: deviceData,
+        userAgent: navigator.userAgent,
         cardNumber: newCount,
         createdAt: Date.now()
       });
