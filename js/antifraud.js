@@ -42,8 +42,10 @@ const AntifraudManager = (() => {
       navigator.hardwareConcurrency || 0,
       navigator.maxTouchPoints || 0,
       navigator.platform || "",
+      navigator.deviceMemory || 0,
       webgl,
-      canvasFP
+      canvasFP,
+      fontFP
     ];
 
     return await sha256(components.join("|||"));
@@ -65,13 +67,14 @@ const AntifraudManager = (() => {
 
     try {
       // Ileri Donanim Fingerprintlerini her halukarda bekle ve birlestir (Paralel olarak daha hizli yuklenir)
-      const [advancedWebGL, audioFP] = await Promise.all([
+      const [advancedWebGL, audioFP, speechFP] = await Promise.all([
         getAdvancedWebGLFingerprint(),
-        getAudioContextFingerprint()
+        getAudioContextFingerprint(),
+        getSpeechVoicesFingerprint()
       ]);
 
       // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
-      const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP;
+      const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP + "|" + speechFP;
       return await sha256(combinedRaw);
     } catch (err) {
       return await sha256(baseFp); // En kotu senaryoda sadece baseFp'yi hashle
@@ -145,8 +148,40 @@ const AntifraudManager = (() => {
           }
         } catch (extError) { }
 
+        // WebGL desteklenen extension listesi - ek entropy kaynagi
+        let extensions = "";
+        try {
+          const extList = gl.getSupportedExtensions();
+          extensions = extList ? extList.sort().join(",") : "";
+        } catch (extErr) {}
+
+        // WebGL parametreleri - GPU yeteneklerini ayirt eder
+        let params = "";
+        try {
+          params = [
+            gl.getParameter(gl.MAX_TEXTURE_SIZE),
+            gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+            gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS),
+            gl.getParameter(gl.MAX_VARYING_VECTORS),
+            gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
+            gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
+            gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE) ? gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE).toString() : "",
+            gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) ? gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE).toString() : ""
+          ].join(",");
+        } catch (paramErr) {}
+
+        // WebGL kaynaklarini temizle (memory leak onleme)
+        try {
+          gl.deleteBuffer(vbo);
+          gl.deleteShader(vShader);
+          gl.deleteShader(fShader);
+          gl.deleteProgram(program);
+          const loseCtx = gl.getExtension("WEBGL_lose_context");
+          if (loseCtx) loseCtx.loseContext();
+        } catch (cleanupErr) {}
+
         clearTimeout(timeout);
-        resolve(hash.toString(16) + "~" + vendor + "~" + renderer);
+        resolve(hash.toString(16) + "~" + vendor + "~" + renderer + "~" + extensions.length + "~" + params);
       } catch (e) {
         clearTimeout(timeout);
         resolve("webgl-err");
@@ -178,7 +213,6 @@ const AntifraudManager = (() => {
         compressor.threshold.value = -50;
         compressor.knee.value = 40;
         compressor.ratio.value = 12;
-        compressor.reduction.value = -20;
         compressor.attack.value = 0;
         compressor.release.value = 0.25;
 
@@ -191,11 +225,13 @@ const AntifraudManager = (() => {
           clearTimeout(timeout);
           try {
             const buffer = event.renderedBuffer.getChannelData(0);
-            let hash = 0;
+            // Daha saglam hash: birden fazla aralik kullan ve DJB2 hash ile birlestir
+            let hash = 5381;
             for (let i = 4500; i < 5000; i++) {
-              hash += Math.abs(buffer[i]);
+              hash = ((hash << 5) + hash) + (buffer[i] * 1000000 | 0);
+              hash = hash & 0x7fffffff;
             }
-            resolve(hash.toString());
+            resolve(hash.toString(36));
           } catch (err) {
             resolve("audio-err");
           }
@@ -215,6 +251,67 @@ const AntifraudManager = (() => {
     });
   }
 
+  // SpeechSynthesis API ses listesi - tarayiciya ozel entropy kaynagi
+  function getSpeechVoicesFingerprint() {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve("speech-timeout"), 500);
+      try {
+        if (!window.speechSynthesis) {
+          clearTimeout(timeout);
+          return resolve("no-speech");
+        }
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          clearTimeout(timeout);
+          return resolve(voices.map(v => v.name + ":" + v.lang).sort().join(","));
+        }
+        // Bazi tarayicilarda sesler async yuklenir
+        window.speechSynthesis.onvoiceschanged = () => {
+          clearTimeout(timeout);
+          const v = window.speechSynthesis.getVoices();
+          resolve(v.map(vi => vi.name + ":" + vi.lang).sort().join(","));
+        };
+      } catch (e) {
+        clearTimeout(timeout);
+        resolve("speech-err");
+      }
+    });
+  }
+
+  // Font kullanilabilirlik testi - her cihazda farkli fontlar yuklu
+  function getFontFingerprint() {
+    try {
+      const testFonts = [
+        "Arial", "Verdana", "Times New Roman", "Courier New", "Georgia",
+        "Comic Sans MS", "Impact", "Trebuchet MS", "Palatino Linotype",
+        "Lucida Console", "Tahoma", "Segoe UI", "Roboto", "Noto Sans",
+        "Calibri", "Cambria", "Consolas", "Helvetica Neue", "Ubuntu",
+        "Cantarell", "DejaVu Sans", "Liberation Mono", "Noto Color Emoji"
+      ];
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 300;
+      canvas.height = 30;
+      const ctx = canvas.getContext("2d");
+      const testStr = "mmMwWLli10O&";
+      const baseFont = "72px monospace";
+
+      ctx.font = baseFont;
+      const baseWidth = ctx.measureText(testStr).width;
+
+      const detected = [];
+      for (const font of testFonts) {
+        ctx.font = "72px '" + font + "', monospace";
+        if (ctx.measureText(testStr).width !== baseWidth) {
+          detected.push(font);
+        }
+      }
+      return detected.join(",");
+    } catch (e) {
+      return "font-err";
+    }
+  }
+
   function getWebGLFingerprint() {
     try {
       const canvas = document.createElement("canvas");
@@ -222,25 +319,56 @@ const AntifraudManager = (() => {
       if (!gl) return "no-webgl";
       const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
       if (!debugInfo) return "no-debug";
-      return gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + "~" +
-        gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      const result = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + "~" +
+             gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      // Kaynaklari temizle
+      try {
+        const loseCtx = gl.getExtension("WEBGL_lose_context");
+        if (loseCtx) loseCtx.loseContext();
+      } catch (cleanupErr) {}
+      return result;
     } catch (e) { return "err"; }
   }
 
   function getCanvasFingerprint() {
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = 200; canvas.height = 50;
+      canvas.width = 280; canvas.height = 60;
       const ctx = canvas.getContext("2d");
-      ctx.textBaseline = "alphabetic";
+
+      // Gradient arka plan - GPU renk karistirmasini test eder
+      const gradient = ctx.createLinearGradient(0, 0, 280, 0);
+      gradient.addColorStop(0, "#ff6600");
+      gradient.addColorStop(0.5, "#0066ff");
+      gradient.addColorStop(1, "#00ff66");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 280, 60);
+
+      // Dikdortgen - basit sekil
       ctx.fillStyle = "#f60";
       ctx.fillRect(100, 1, 62, 20);
+
+      // Metin render - font rasterization farkliliklari
+      ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "#069";
       ctx.font = "11pt Arial";
       ctx.fillText("Anime Oylama 2026!", 2, 15);
       ctx.fillStyle = "rgba(102,204,0,0.7)";
       ctx.font = "18pt Arial";
       ctx.fillText("AnimeVote", 4, 45);
+
+      // Arc ve Bezier - vektorel cizim farkliliklari
+      ctx.beginPath();
+      ctx.arc(200, 30, 15, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,0,128,0.5)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(230, 5);
+      ctx.bezierCurveTo(240, 25, 260, 35, 275, 55);
+      ctx.strokeStyle = "rgba(0,128,255,0.6)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
       return canvas.toDataURL();
     } catch (e) { return "err"; }
   }
@@ -248,6 +376,15 @@ const AntifraudManager = (() => {
   // Cihaz-seviyesi parmak izi: tarayicidan BAGIMSIZ sinyaller
   // Ayni cihazdaki farkli tarayicilarda ayni hash'i uretmesi hedeflenir
   async function generateDeviceFingerprint() {
+    // Ag baglanti bilgisi - cihaza ozel ek sinyal
+    let connectionInfo = "";
+    try {
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn) {
+        connectionInfo = [conn.type || "", conn.effectiveType || "", conn.downlinkMax || 0].join(",");
+      }
+    } catch (e) {}
+
     // Safari gizli sekme vs Normal sekme vs Opera uclemesinde tam eslesme icin
     // hicbir sekilde cozunurluk (width/height - zoom veya UI yuzunden degisebilir) kullanmiyoruz!
     // Sadece DONANIMA ve ISLETIM SISTEMINE fiziksel olarak kazinmis verileri kodluyoruz.
@@ -257,7 +394,10 @@ const AntifraudManager = (() => {
       screen.colorDepth || 24,           // Renk derinligi sabittir
       navigator.hardwareConcurrency || 0,// Cekirdek sayisi sabittir
       navigator.maxTouchPoints || 0,     // Dokunmatik limit sabittir
-      new Date().getTimezoneOffset()     // Saat dilimi sabittir (VPN etkilemez)
+      navigator.deviceMemory || 0,       // RAM bilgisi sabittir
+      new Date().getTimezoneOffset(),    // Saat dilimi sabittir (VPN etkilemez)
+      connectionInfo,
+      navigator.pdfViewerEnabled !== undefined ? navigator.pdfViewerEnabled : "na"
     ];
 
     // Ekran genisligini cok kaba bir sekilde ele alalim (100 px tolerans payiyla) 
@@ -267,6 +407,38 @@ const AntifraudManager = (() => {
     components.push(roughW + "x" + roughH);
 
     return await sha256(components.join("|||"));
+  }
+
+  function sanitizeSelections(selections) {
+    if (!selections || typeof selections !== "object" || Array.isArray(selections)) {
+      throw new Error("Gecersiz oy verisi.");
+    }
+
+    const categoryMap = new Map();
+    CATEGORIES.forEach((category) => {
+      categoryMap.set(category.id, new Set(category.candidates.map((candidate) => candidate.id)));
+    });
+
+    const cleanedSelections = {};
+    const incomingKeys = Object.keys(selections);
+
+    if (incomingKeys.length !== CATEGORIES.length) {
+      throw new Error("Eksik veya gecersiz kategori secimi.");
+    }
+
+    for (const category of CATEGORIES) {
+      const selectedCandidate = selections[category.id];
+      if (typeof selectedCandidate !== "string" || !categoryMap.get(category.id).has(selectedCandidate)) {
+        throw new Error("Gecersiz aday secimi tespit edildi.");
+      }
+      cleanedSelections[category.id] = selectedCandidate;
+    }
+
+    if (Object.keys(cleanedSelections).length !== incomingKeys.length) {
+      throw new Error("Beklenmeyen secim verisi tespit edildi.");
+    }
+
+    return cleanedSelections;
   }
 
   // --- Yerel Depolama (6 mekanizma) ---
@@ -288,7 +460,8 @@ const AntifraudManager = (() => {
     try {
       const d = new Date();
       d.setTime(d.getTime() + COOKIE_DAYS * 24 * 60 * 60 * 1000);
-      document.cookie = `${COOKIE_NAME}=1;expires=${d.toUTCString()};path=/;SameSite=Strict`;
+      const secure = location.protocol === "https:" ? ";Secure" : "";
+      document.cookie = `${COOKIE_NAME}=1;expires=${d.toUTCString()};path=/;SameSite=Strict${secure}`;
     } catch (e) { }
   }
   function getCookie() {
@@ -469,8 +642,9 @@ const AntifraudManager = (() => {
       throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
     }
 
+    const cleanedSelections = sanitizeSelections(selections);
     const visitorId = await getVisitorId();
-    const cardNumber = await saveVoteAtomically(visitorId, selections);
+    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections);
     markAsVotedLocally();
 
     return { visitorId, cardNumber };
@@ -508,7 +682,8 @@ const AntifraudManager = (() => {
     try { sessionStorage.removeItem(SELECTIONS_KEY); } catch (e) { }
     // Cookie
     try {
-      document.cookie = `${COOKIE_NAME}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Strict`;
+      const secure = location.protocol === "https:" ? ";Secure" : "";
+      document.cookie = `${COOKIE_NAME}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Strict${secure}`;
     } catch (e) { }
     // IndexedDB
     try {

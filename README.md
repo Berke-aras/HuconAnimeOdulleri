@@ -66,22 +66,49 @@ Firestore guvenlik kurallari `list: false` oldugu icin, oy sonuclari istemci tar
 | Katman | Mekanizma | Ne Yapar |
 |--------|-----------|----------|
 | 1 | FingerprintJS | Tarayici parmak izi (30+ sinyal) |
-| 2 | WebGL + Canvas | Ek donanim parmak izleri (engelleme degil, log) |
-| 3 | Firestore Belge | Sunucu tarafinda tekil kayit (temizlenemez) |
-| 4 | localStorage + Cookie + SessionStorage | 3 farkli tarayici deposu |
-| 5 | IndexedDB + Cache API + window.name | Temizlenmesi zor 3 ek depo |
-| 6 | Firestore Security Rules | Ayni ID'ye ikinci yazma engeli + veri dogrulama |
-| 7 | Bot Korumasi | Minimum oylama suresi kontrolu (15sn) |
+| 2 | WebGL + Canvas + Font | Ek donanim parmak izleri (GPU render, font tespiti) |
+| 3 | Audio Context + Speech Voices | Ses isleme ve sesli asistan parmak izleri |
+| 4 | Firestore Belge | Sunucu tarafinda tekil kayit (temizlenemez) |
+| 5 | localStorage + Cookie + SessionStorage | 3 farkli tarayici deposu |
+| 6 | IndexedDB + Cache API + window.name | Temizlenmesi zor 3 ek depo |
+| 7 | Firestore Security Rules | Ayni ID'ye ikinci yazma engeli + veri dogrulama |
+| 8 | Bot Korumasi | Minimum oylama suresi kontrolu (15sn) |
+| 9 | Cloudflare Turnstile | CAPTCHA bot korumasi |
 
 Bir kullanici tekrar oy vermek icin TUM bu katmanlari ayni anda atlatmasi gerekir.
 
+### Parmak Izi (Fingerprint) Detaylari
+
+Anti-fraud sistemi asagidaki entropy kaynaklarini kullanir:
+
+| Kaynak | Aciklama | Benzersizlik Katkisi |
+|--------|----------|---------------------|
+| FingerprintJS | Profesyonel 30+ sinyal analizi | Yuksek |
+| WebGL Shader Rendering | GPU piksel yuvarlama farkliliklari | Yuksek |
+| WebGL Parametreleri | MAX_TEXTURE_SIZE, extension listesi vb. | Orta |
+| Canvas Fingerprint | Gradient, arc, bezier cizim farkliliklari | Yuksek |
+| Audio Context | Oscillator + Compressor ses isleme imzasi | Orta |
+| Font Tespiti | 23 farkli font ailesinin varlik kontrolu | Orta |
+| SpeechSynthesis Voices | Tarayicida yuklu ses listesi | Dusuk-Orta |
+| Cihaz Bilgileri | Ekran, RAM, CPU, dokunmatik, timezone | Orta |
+| Network Connection | Baglanti tipi ve hiz bilgisi | Dusuk |
+
 ### Guvenlik Detaylari
 
-- **Hata durumunda bypass engeli:** Firebase veya FingerprintJS baglanti hatasi olursa oylama sayfasi acilmaz, hata mesaji gosterilir
+- **XSS Korumasi:** Tum kullanici/veri kaynaklarindan gelen icerikler `escapeHTML()` ile sanitize edilir
+- **Input Dogrulama:** Secim verileri boyut ve tip kontrolunden gecer (`submitVote` icinde)
+- **Hata durumunda bypass engeli:** Firebase veya FingerprintJS baglanti hatasi olursa oylama sayfasi acilmaz
+- **Hata mesaji gizliligi:** Hata detaylari kullaniciya gosterilmez, sadece genel mesaj verilir
+- **Cookie Guvenlik:** HTTPS uzerinde `Secure` flag otomatik eklenir, `SameSite=Strict` her zaman aktif
 - **Veri dogrulama:** Firestore kurallari oy belgesinin yapisini, alan sayisini ve tipleri dogrular
+- **WebGL Kaynak Temizligi:** Fingerprint sonrasi GPU kaynaklari serbest birakilir (memory leak onleme)
 - **Sifre hashi gizli:** Admin sifre hashi sadece `local/admin.html`'de bulunur, GitHub Pages'te yoktur
 - **Referrer gizleme:** Tum sayfalarda `no-referrer` meta tagi
 - **iFrame engeli:** `X-Frame-Options: DENY` meta tagi
+
+Detayli fingerprint ve guvenlik inceleme notlari icin:
+
+- `GUVENLIK_RAPORU.md`
 
 ## Dosya Yapisi
 
@@ -112,21 +139,5 @@ animeoylama/
 - Sadece oylama tamamlayan kisiler erisebilir (erisim tokeni korumali)
 - PNG olarak indirilebilir
 - Etkinlik adi, tarih ve secimleri icerir
-
-
-
-2. reCAPTCHA v2 Entegrasyonu
-Oylama onay ekranina (oylama.html) Google reCAPTCHA v2 eklendi:
-
-Secimler listesinin altinda, "Oylari Gonder" butonunun ustunde dark tema reCAPTCHA checkbox'i gosterilir
-Kullanici reCAPTCHA'yi cozmeden oy gonderemez (buton tiklandignda kirmizi cerceve ile uyari gosterilir)
-Hata durumunda reCAPTCHA otomatik sifirlanir
-reCAPTCHA explicit render modunda yuklenip data.js'deki SITE_CONFIG.recaptchaSiteKey degerini kullanir
-Onemli: Simdilik Google'in test key'i kullaniliyor (her zaman gecis verir). Production icin:
-
-https://www.google.com/recaptcha/admin adresine gidin
-reCAPTCHA v2 "I'm not a robot" secin
-GitHub Pages domaininizi ekleyin
-Aldigniz site key'i js/data.js icindeki recaptchaSiteKey alanina yazin
 
 CAPTCHA KAPALI ŞUAN ONU AÇMAYI UNUTMA

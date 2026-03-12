@@ -10,6 +10,13 @@ let turnstileToken = null;
 // Aynı kategoride scroll davranisini sadece ilk secimde calistirmak icin
 const scrolledForCategory = {};
 
+// XSS onleme: HTML ozel karakterlerini encode et
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
 function isTouchDevice() {
   return (
     (typeof window !== 'undefined' && 'ontouchstart' in window) ||
@@ -123,7 +130,7 @@ function renderCategory(animate) {
   document.getElementById('progressCounter').textContent = `${currentCategoryIndex + 1} / ${total}`;
   document.getElementById('progressFill').style.width = `${((currentCategoryIndex + 1) / total) * 100}%`;
 
-  document.getElementById('categoryTitle').innerHTML = getIconSVG(cat.icon) + ' ' + cat.title;
+  document.getElementById('categoryTitle').innerHTML = getIconSVG(cat.icon) + ' ' + escapeHTML(cat.title);
 
   const grid = document.getElementById('candidatesGrid');
 
@@ -192,7 +199,7 @@ function populateGrid(cat, grid) {
       card.classList.add('selected');
     }
 
-    const initials = candidate.name.split(' ').map(w => w[0]).join('').substring(0, 2);
+    const initials = escapeHTML(candidate.name.split(' ').map(w => w[0]).join('').substring(0, 2));
 
     card.innerHTML = `
       <div class="candidate-check">
@@ -203,16 +210,16 @@ function populateGrid(cat, grid) {
       <div style="overflow:hidden;">
         <img
           class="candidate-image"
-          src="${candidate.image}"
-          alt="${candidate.name}"
+          src="${escapeHTML(candidate.image)}"
+          alt="${escapeHTML(candidate.name)}"
           onerror="this.style.display='none';this.parentElement.querySelector('.candidate-image-placeholder').style.display='flex';"
           loading="lazy"
         >
         <div class="candidate-image-placeholder" style="display:none;">${initials}</div>
       </div>
       <div class="candidate-info">
-        <h3>${candidate.name}</h3>
-        <span class="anime-name">${candidate.anime}</span>
+        <h3>${escapeHTML(candidate.name)}</h3>
+        <span class="anime-name">${escapeHTML(candidate.anime)}</span>
       </div>
     `;
 
@@ -309,7 +316,7 @@ function showConfirmScreen() {
     const candidate = cat.candidates.find(c => c.id === selectedId);
     if (!candidate) return;
 
-    const initials = candidate.name.split(' ').map(w => w[0]).join('').substring(0, 2);
+    const initials = escapeHTML(candidate.name.split(' ').map(w => w[0]).join('').substring(0, 2));
 
     const item = document.createElement('div');
     item.className = 'confirm-item';
@@ -318,14 +325,14 @@ function showConfirmScreen() {
     item.innerHTML = `
       <img
         class="confirm-item-img"
-        src="${candidate.image}"
-        alt="${candidate.name}"
+        src="${escapeHTML(candidate.image)}"
+        alt="${escapeHTML(candidate.name)}"
         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
       >
       <div class="confirm-item-img-placeholder" style="display:none;">${initials}</div>
       <div class="confirm-item-text">
-        <div class="confirm-item-category">${cat.title}</div>
-        <div class="confirm-item-name">${candidate.name}</div>
+        <div class="confirm-item-category">${escapeHTML(cat.title)}</div>
+        <div class="confirm-item-name">${escapeHTML(candidate.name)}</div>
       </div>
     `;
     list.appendChild(item);
@@ -379,7 +386,7 @@ async function submitVotes() {
       document.getElementById('voteSection').classList.add('hidden');
       document.getElementById('alreadyVotedSection').classList.remove('hidden');
     } else {
-      alert('Bir hata olustu: ' + e.message + '\nLutfen tekrar deneyin.');
+      alert('Bir hata olustu. Lutfen tekrar deneyin.');
     }
   }
 }
