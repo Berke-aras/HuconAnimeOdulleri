@@ -147,18 +147,18 @@ function calcCardSize(candidateCount) {
   const isMobile = vw <= 768;
 
   if (!isMobile) {
-    const availW = Math.min(vw - 64, 1100);
-    const gap = 16;
+    const availW = Math.min(vw - 64, 1260);
+    const gap = 20;
     const maxCols = Math.min(candidateCount, 6);
     const w = (availW - gap * (maxCols - 1)) / maxCols;
-    return Math.max(140, Math.min(w, 200));
+    return Math.max(160, Math.min(w, 220));
   }
 
   const chromeH = vw <= 400 ? 210 : 220;
   const availH = Math.max(80, vh - chromeH);
   const availW = vw - 20;
-  const gap = 8;
-  const infoH = vw <= 400 ? 36 : 44;
+  const gap = 10;
+  const infoH = vw <= 400 ? 40 : 48;
   const aspect = 3 / 4;
   const cols = 2;
   const rows = Math.ceil(candidateCount / cols);
@@ -166,7 +166,7 @@ function calcCardSize(candidateCount) {
   const cardTotalH = (availH - gap * (rows - 1)) / rows;
   const wByHeight = Math.max(0, cardTotalH - infoH) * aspect;
   const w = Math.min(wByWidth, wByHeight);
-  return Math.max(70, Math.min(w, 140));
+  return Math.max(80, Math.min(w, 160));
 }
 
 function populateGrid(cat, grid) {
