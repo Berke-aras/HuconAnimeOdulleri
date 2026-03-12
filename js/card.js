@@ -6,21 +6,23 @@
 
 const CARD_W = 1080;
 const CARD_H = 1920;
-const CARD_PAD = 60;
+const CARD_PAD = 50;
 const THUMB_SIZE = 52;
 
 const COLORS = {
   bg: '#0c0c24',
-  overlayBg: 'rgba(10, 10, 30, 0.82)',
+  overlayBg: 'rgba(8, 8, 28, 0.78)',
+  overlayBorder: 'rgba(124, 58, 237, 0.2)',
   title: '#ffffff',
-  number: '#a855f7',
-  numberGlow: 'rgba(168, 85, 247, 0.6)',
-  label: '#9999bb',
-  catName: '#666688',
-  selName: '#eeeeff',
-  divider: 'rgba(124, 58, 237, 0.3)',
+  number: '#c084fc',
+  numberGlow: 'rgba(192, 132, 252, 0.5)',
+  label: '#b8b8d4',
+  catName: '#8888aa',
+  selName: '#f0f0ff',
+  divider: 'rgba(168, 85, 247, 0.35)',
   dot: ['#7c3aed', '#ec4899', '#06b6d4', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#3b82f6'],
-  footer: '#666688'
+  footer: '#8888aa',
+  accentStrip: ['#7c3aed', '#a855f7', '#ec4899', '#c084fc']
 };
 
 let _cardCanvas = null;
@@ -74,8 +76,9 @@ function drawRoundedImage(ctx, img, x, y, size, radius) {
   ctx.drawImage(img, x, y, size, size);
   ctx.restore();
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 2;
+  // Subtle glow border around thumbnails
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 2.5;
   roundRect(ctx, x, y, size, size, radius);
   ctx.stroke();
 }
@@ -87,14 +90,14 @@ function drawInitialsThumb(ctx, initials, x, y, size, radius, color) {
   ctx.fill();
   ctx.restore();
 
-  ctx.strokeStyle = color + '66';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = color + '55';
+  ctx.lineWidth = 2.5;
   roundRect(ctx, x, y, size, size, radius);
   ctx.stroke();
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 22px Outfit, sans-serif';
+  ctx.font = 'bold 26px Outfit, sans-serif';
   ctx.fillStyle = color;
   ctx.fillText(initials, x + size / 2, y + size / 2);
   ctx.textBaseline = 'alphabetic';
@@ -183,45 +186,70 @@ function drawDefaultBackground(ctx) {
   ctx.fillText(SITE_CONFIG.title.toUpperCase(), CARD_W / 2, CARD_H / 2 + 40);
 }
 
-function drawNumberSection(ctx, data, hasBg) {
-  const numStr = '#' + String(data.cardNumber).padStart(4, '0');
-  const sectionH = 320;
-
-  roundRect(ctx, CARD_PAD, CARD_PAD, CARD_W - CARD_PAD * 2, sectionH, 24);
-  ctx.fillStyle = hasBg ? COLORS.overlayBg : 'rgba(10, 10, 30, 0.6)';
+function drawOverlayBox(ctx, x, y, w, h, hasBg) {
+  // Background fill
+  roundRect(ctx, x, y, w, h, 28);
+  ctx.fillStyle = hasBg ? COLORS.overlayBg : 'rgba(10, 10, 30, 0.55)';
   ctx.fill();
 
+  // Subtle border
+  ctx.strokeStyle = COLORS.overlayBorder;
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x, y, w, h, 28);
+  ctx.stroke();
+
+  // Accent gradient strip at top of box
+  ctx.save();
+  roundRect(ctx, x, y, w, 5, 28);
+  ctx.clip();
+  const stripGrad = ctx.createLinearGradient(x, y, x + w, y);
+  stripGrad.addColorStop(0, COLORS.accentStrip[0]);
+  stripGrad.addColorStop(0.33, COLORS.accentStrip[1]);
+  stripGrad.addColorStop(0.66, COLORS.accentStrip[2]);
+  stripGrad.addColorStop(1, COLORS.accentStrip[3]);
+  ctx.fillStyle = stripGrad;
+  ctx.fillRect(x, y, w, 5);
+  ctx.restore();
+}
+
+function drawNumberSection(ctx, data, hasBg) {
+  const numStr = '#' + String(data.cardNumber).padStart(4, '0');
+  const sectionH = 340;
+  const contentW = CARD_W - CARD_PAD * 2;
+
+  drawOverlayBox(ctx, CARD_PAD, CARD_PAD, contentW, sectionH, hasBg);
+
   ctx.textAlign = 'center';
-  ctx.font = '600 28px Outfit, sans-serif';
+  ctx.font = '600 30px Outfit, sans-serif';
   ctx.fillStyle = COLORS.label;
-  ctx.letterSpacing = '8px';
-  ctx.fillText('KATILIMCI', CARD_W / 2, CARD_PAD + 80);
+  ctx.letterSpacing = '10px';
+  ctx.fillText('KATILIMCI', CARD_W / 2, CARD_PAD + 85);
   ctx.letterSpacing = '0px';
 
-  ctx.font = 'bold 110px Outfit, sans-serif';
+  ctx.font = 'bold 120px Outfit, sans-serif';
   ctx.shadowColor = COLORS.numberGlow;
-  ctx.shadowBlur = 40;
+  ctx.shadowBlur = 50;
   ctx.fillStyle = COLORS.number;
-  ctx.fillText(numStr, CARD_W / 2, CARD_PAD + 210);
+  ctx.fillText(numStr, CARD_W / 2, CARD_PAD + 225);
   ctx.shadowBlur = 0;
 
-  ctx.font = '500 24px Outfit, sans-serif';
+  ctx.font = '500 26px Outfit, sans-serif';
   ctx.fillStyle = COLORS.footer;
-  ctx.letterSpacing = '4px';
-  ctx.fillText(SITE_CONFIG.eventName.toUpperCase(), CARD_W / 2, CARD_PAD + 280);
+  ctx.letterSpacing = '5px';
+  ctx.fillText(SITE_CONFIG.eventName.toUpperCase(), CARD_W / 2, CARD_PAD + 300);
   ctx.letterSpacing = '0px';
 }
 
 function drawSelectionsSection(ctx, data, hasBg, selections) {
   const cols = 2;
-  const colGap = 16;
-  const innerPad = 24;
-  const cellH = 100;
-  const cellGap = 12;
-  const cellThumb = 60;
-  const cellRadius = 14;
-  const headerH = 70;
-  const footerH = 60;
+  const colGap = 18;
+  const innerPad = 28;
+  const cellH = 110;
+  const cellGap = 14;
+  const cellThumb = 72;
+  const cellRadius = 16;
+  const headerH = 75;
+  const footerH = 65;
 
   const rows = Math.ceil(selections.length / cols);
   const gridH = rows * cellH + (rows - 1) * cellGap;
@@ -230,36 +258,44 @@ function drawSelectionsSection(ctx, data, hasBg, selections) {
   const contentW = CARD_W - CARD_PAD * 2;
 
   // Ana overlay kutusu
-  roundRect(ctx, CARD_PAD, sectionY, contentW, sectionH, 24);
-  ctx.fillStyle = hasBg ? COLORS.overlayBg : 'rgba(10, 10, 30, 0.6)';
-  ctx.fill();
+  drawOverlayBox(ctx, CARD_PAD, sectionY, contentW, sectionH, hasBg);
 
   // "SECIMLERIM" baslik
   const headerY = sectionY + headerH / 2 + innerPad;
   const centerX = CARD_W / 2;
-  const lineW = 120;
-  const textW = 200;
+  const lineW = 130;
+  const textW = 220;
 
-  ctx.strokeStyle = COLORS.divider;
-  ctx.lineWidth = 1;
+  // Decorative lines
+  const lineGrad1 = ctx.createLinearGradient(centerX - textW / 2 - lineW, headerY, centerX - textW / 2 - 10, headerY);
+  lineGrad1.addColorStop(0, 'transparent');
+  lineGrad1.addColorStop(1, COLORS.divider);
+  ctx.strokeStyle = lineGrad1;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(centerX - textW / 2 - lineW, headerY);
   ctx.lineTo(centerX - textW / 2 - 10, headerY);
   ctx.stroke();
+
+  const lineGrad2 = ctx.createLinearGradient(centerX + textW / 2 + 10, headerY, centerX + textW / 2 + lineW, headerY);
+  lineGrad2.addColorStop(0, COLORS.divider);
+  lineGrad2.addColorStop(1, 'transparent');
+  ctx.strokeStyle = lineGrad2;
   ctx.beginPath();
   ctx.moveTo(centerX + textW / 2 + 10, headerY);
   ctx.lineTo(centerX + textW / 2 + lineW, headerY);
   ctx.stroke();
 
+  // Decorative dots
   ctx.fillStyle = COLORS.number;
   ctx.beginPath(); ctx.arc(centerX - textW / 2 - lineW - 6, headerY, 4, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(centerX + textW / 2 + lineW + 6, headerY, 4, 0, Math.PI * 2); ctx.fill();
 
   ctx.textAlign = 'center';
-  ctx.font = 'bold 22px Outfit, sans-serif';
+  ctx.font = 'bold 24px Outfit, sans-serif';
   ctx.fillStyle = COLORS.label;
-  ctx.letterSpacing = '6px';
-  ctx.fillText('SECIMLERIM', centerX, headerY + 6);
+  ctx.letterSpacing = '8px';
+  ctx.fillText('SEÇİMLERİM', centerX, headerY + 7);
   ctx.letterSpacing = '0px';
 
   // 2 sutunlu grid
@@ -273,49 +309,61 @@ function drawSelectionsSection(ctx, data, hasBg, selections) {
     const cellX = gridStartX + col * (colW + colGap);
     const cellY = gridStartY + row * (cellH + cellGap);
 
-    // Hucre arka plani
+    // Hucre arka plani - subtle gradient
     roundRect(ctx, cellX, cellY, colW, cellH, cellRadius);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    const cellGrad = ctx.createLinearGradient(cellX, cellY, cellX + colW, cellY + cellH);
+    cellGrad.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
+    cellGrad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+    ctx.fillStyle = cellGrad;
     ctx.fill();
-    ctx.strokeStyle = sel.color + '25';
-    ctx.lineWidth = 1;
+
+    // Cell border with color accent
+    ctx.strokeStyle = sel.color + '30';
+    ctx.lineWidth = 1.5;
     roundRect(ctx, cellX, cellY, colW, cellH, cellRadius);
     ctx.stroke();
 
-    // Sol kenar renk aksani
-    roundRect(ctx, cellX, cellY, 4, cellH, 2);
-    ctx.fillStyle = sel.color + '99';
-    ctx.fill();
+    // Sol kenar renk aksani - thicker and glowing
+    ctx.save();
+    roundRect(ctx, cellX, cellY, 5, cellH, 3);
+    ctx.clip();
+    const edgeGrad = ctx.createLinearGradient(cellX, cellY, cellX, cellY + cellH);
+    edgeGrad.addColorStop(0, sel.color + 'cc');
+    edgeGrad.addColorStop(0.5, sel.color + 'ff');
+    edgeGrad.addColorStop(1, sel.color + '88');
+    ctx.fillStyle = edgeGrad;
+    ctx.fillRect(cellX, cellY, 5, cellH);
+    ctx.restore();
 
-    // Thumbnail
-    const thumbPad = 14;
+    // Thumbnail - larger
+    const thumbPad = 16;
     const thumbX = cellX + thumbPad + 6;
     const thumbY = cellY + (cellH - cellThumb) / 2;
 
     if (sel.image) {
-      drawRoundedImage(ctx, sel.image, thumbX, thumbY, cellThumb, 10);
+      drawRoundedImage(ctx, sel.image, thumbX, thumbY, cellThumb, 12);
     } else {
-      drawInitialsThumb(ctx, sel.initials, thumbX, thumbY, cellThumb, 10, sel.color);
+      drawInitialsThumb(ctx, sel.initials, thumbX, thumbY, cellThumb, 12, sel.color);
     }
 
     // Metin alani
-    const txtX = thumbX + cellThumb + 14;
-    const txtMaxW = colW - cellThumb - thumbPad - 34;
+    const txtX = thumbX + cellThumb + 16;
+    const txtMaxW = colW - cellThumb - thumbPad - 40;
 
     // Kategori adi
     ctx.textAlign = 'left';
-    ctx.font = '500 18px Outfit, sans-serif';
+    ctx.font = '500 20px Outfit, sans-serif';
     ctx.fillStyle = COLORS.catName;
-    ctx.fillText(truncateText(ctx, sel.cat.toUpperCase(), txtMaxW), txtX, cellY + 38);
+    ctx.fillText(truncateText(ctx, sel.cat.toUpperCase(), txtMaxW), txtX, cellY + 42);
 
-    // Aday adi
-    ctx.font = 'bold 26px Outfit, sans-serif';
+    // Aday adi - bigger and bolder
+    ctx.font = 'bold 28px Outfit, sans-serif';
     ctx.fillStyle = COLORS.selName;
-    ctx.fillText(truncateText(ctx, sel.name, txtMaxW), txtX, cellY + 68);
+    ctx.fillText(truncateText(ctx, sel.name, txtMaxW), txtX, cellY + 74);
   });
 
   // Footer
-  const footerY = gridStartY + gridH + 16;
+  const footerY = gridStartY + gridH + 20;
   const grad = ctx.createLinearGradient(gridStartX, footerY, CARD_W - CARD_PAD - innerPad, footerY);
   grad.addColorStop(0, 'transparent');
   grad.addColorStop(0.5, COLORS.divider);
@@ -328,10 +376,10 @@ function drawSelectionsSection(ctx, data, hasBg, selections) {
   ctx.stroke();
 
   ctx.textAlign = 'center';
-  ctx.font = '500 20px Outfit, sans-serif';
+  ctx.font = '500 22px Outfit, sans-serif';
   ctx.fillStyle = COLORS.footer;
-  const footerText = SITE_CONFIG.eventName + '  |  Katilimci #' + String(data.cardNumber).padStart(4, '0');
-  ctx.fillText(footerText, centerX, footerY + 34);
+  const footerText = SITE_CONFIG.eventName + '  •  Katılımcı #' + String(data.cardNumber).padStart(4, '0');
+  ctx.fillText(footerText, centerX, footerY + 38);
 }
 
 function truncateText(ctx, text, maxW) {
