@@ -262,7 +262,25 @@ const AntifraudManager = (() => {
     setWindowName();
   }
 
+  function isRevoteMode() {
+    try { return sessionStorage.getItem(_k + '_revote') === '1'; } catch (e) { return false; }
+  }
+
+  function enableRevoteMode() {
+    try { sessionStorage.setItem(_k + '_revote', '1'); } catch (e) {}
+  }
+
+  function clearRevoteMode() {
+    try { sessionStorage.removeItem(_k + '_revote'); } catch (e) {}
+  }
+
   async function hasAlreadyVoted() {
+    // Revote modundaysa yerel ve Firestore kontrollerini atla
+    if (isRevoteMode()) {
+      clearRevoteMode();
+      return false;
+    }
+
     if (getVotedLS()) return true;
     if (getCookie()) return true;
     if (getWindowName()) return true;
@@ -362,6 +380,7 @@ const AntifraudManager = (() => {
     storeVoteData,
     getVoteData,
     clearLocalVoteData,
+    enableRevoteMode,
     sha256,
     SELECTIONS_KEY
   };
