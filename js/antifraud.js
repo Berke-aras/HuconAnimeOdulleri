@@ -216,7 +216,16 @@ const AntifraudManager = (() => {
       const voteDoc = await tx.get(voteRef);
 
       if (voteDoc.exists) {
-        throw new Error("Bu cihazdan zaten oy verilmis.");
+        // Kullanici daha once oy vermis ama yerel verisi kaybolmus
+        // Mevcut oy kaydini guncelle, kart numarasini koru
+        const existingData = voteDoc.data();
+        tx.update(voteRef, {
+          selections: selections,
+          updatedAt: Date.now(),
+          fingerprintHash: fingerprintHash,
+          deviceId: deviceId
+        });
+        return existingData.cardNumber;
       }
 
       let newCount;
@@ -284,11 +293,6 @@ const AntifraudManager = (() => {
     }
 
     const visitorId = await getVisitorId();
-
-    if (await checkFirestore(visitorId)) {
-      throw new Error("Bu cihazdan zaten oy verilmis.");
-    }
-
     const cardNumber = await saveVoteAtomically(visitorId, selections);
     markAsVotedLocally();
 
@@ -318,6 +322,37 @@ const AntifraudManager = (() => {
     } catch (e) { return null; }
   }
 
+  async function clearLocalVoteData() {
+    // LocalStorage - vote flag + selections
+    try { localStorage.removeItem(_s[0]); } catch (e) {}
+    try { localStorage.removeItem(SELECTIONS_KEY); } catch (e) {}
+    // SessionStorage
+    try { sessionStorage.removeItem(_s[1]); } catch (e) {}
+    try { sessionStorage.removeItem(SELECTIONS_KEY); } catch (e) {}
+    // Cookie
+    try {
+      document.cookie = `${COOKIE_NAME}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Strict`;
+    } catch (e) {}
+    // IndexedDB
+    try {
+      const idb = await openIDB();
+      const tx = idb.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).delete(_s[2]);
+    } catch (e) {}
+    // CacheAPI
+    try {
+      if ("caches" in window) {
+        const cache = await caches.open(IDB_NAME);
+        await cache.delete("/_vf");
+      }
+    } catch (e) {}
+    // window.name
+    try {
+      const parts = window.name ? window.name.split("|") : [];
+      window.name = parts.filter(p => p !== _k).join("|");
+    } catch (e) {}
+  }
+
   return {
     getVisitorId,
     hasAlreadyVoted,
@@ -326,6 +361,7 @@ const AntifraudManager = (() => {
     generateAccessToken,
     storeVoteData,
     getVoteData,
+    clearLocalVoteData,
     sha256,
     SELECTIONS_KEY
   };

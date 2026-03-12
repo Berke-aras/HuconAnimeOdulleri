@@ -86,6 +86,14 @@ function jumpToCategory(index) {
   renderCategory(true);
 }
 
+async function revote() {
+  if (!confirm('Oylarinizi sifirlamak ve tekrar oy vermek istediginize emin misiniz?')) return;
+  try {
+    await AntifraudManager.clearLocalVoteData();
+  } catch (e) {}
+  window.location.reload();
+}
+
 (async function init() {
   try {
     const voted = await AntifraudManager.hasAlreadyVoted();
