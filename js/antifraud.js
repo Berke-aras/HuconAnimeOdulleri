@@ -1,7 +1,9 @@
 // ============================================================
-// Anti-Fraud Sistemi v4
+// Anti-Fraud Sistemi v5
 // FingerprintJS + Firestore + 6 yerel depo + bot korumasi
 // + Cihaz-seviyesi parmak izi (cross-browser koruma)
+// + DeviceId tabanli Firestore sorgusu (gizli sekme engelleme)
+// + Proof of Work (otomatik oylama yavastirma)
 // ============================================================
 
 const AntifraudManager = (() => {
@@ -15,6 +17,13 @@ const AntifraudManager = (() => {
 
   const MIN_VOTING_DURATION_MS = 15000;
   let _votingStartedAt = 0;
+  let _isRevoting = false;
+
+  // --- Proof of Work (PoW) ---
+  const POW_DIFFICULTY = 4; // Ilk 4 hex karakter '0' olmali (16-bit zorluk)
+  let _powChallenge = null;
+  let _powPromise = null;
+  let _powResult = null;
 
   async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
@@ -537,10 +546,58 @@ const AntifraudManager = (() => {
     return doc.exists;
   }
 
+  // Cihaz parmak izine gore Firestore'da mevcut oy kontrolu
+  // Gizli sekme veya farkli tarayicida ayni cihazi yakalar
+  async function checkFirestoreByDeviceId(deviceId) {
+    try {
+      const snapshot = await db.collection("votes")
+        .where("deviceId", "==", deviceId)
+        .limit(1)
+        .get();
+      return !snapshot.empty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Proof of Work (PoW) ---
+
+  function generatePowChallenge() {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function solveProofOfWork(challenge) {
+    const target = "0".repeat(POW_DIFFICULTY);
+    let nonce = 0;
+
+    while (true) {
+      const hash = await sha256(challenge + ":" + nonce);
+      if (hash.startsWith(target)) {
+        return { nonce, hash, challenge };
+      }
+      nonce++;
+      // Her 500 iterasyonda ana threade geri don (UI donmasini onle)
+      if (nonce % 500 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+
   async function saveVoteAtomically(visitorId, selections) {
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
     
+    // Tekrar oy verme modu degilse, cihaz parmak izine gore mevcut oy kontrolu
+    // Gizli sekme veya farkli tarayicidan gelen tekrar oylari engeller
+    if (!_isRevoting) {
+      const existsByDevice = await checkFirestoreByDeviceId(deviceId);
+      if (existsByDevice) {
+        throw new Error("Bu cihazdan zaten oy verilmis.");
+      }
+    }
+
     // Admin paneli icin detayli donanim bilgisi (insan tarafindan okunabilir)
     const deviceData = {
       memory: navigator.deviceMemory || "bilinmiyor",
@@ -569,7 +626,8 @@ const AntifraudManager = (() => {
           fingerprintHash: fingerprintHash,
           deviceId: deviceId,
           deviceData: deviceData,
-          userAgent: navigator.userAgent
+          userAgent: navigator.userAgent,
+          powHash: _powResult ? _powResult.hash : null
         });
         return existingData.cardNumber;
       }
@@ -591,7 +649,8 @@ const AntifraudManager = (() => {
         deviceData: deviceData,
         userAgent: navigator.userAgent,
         cardNumber: newCount,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        powHash: _powResult ? _powResult.hash : null
       });
 
       return newCount;
@@ -625,8 +684,10 @@ const AntifraudManager = (() => {
     // Revote modundaysa yerel ve Firestore kontrollerini atla
     if (isRevoteMode()) {
       clearRevoteMode();
+      _isRevoting = true;
       return false;
     }
+    _isRevoting = false;
 
     if (getVotedLS()) return true;
     if (getCookie()) return true;
@@ -641,11 +702,25 @@ const AntifraudManager = (() => {
       return true;
     }
 
+    // Gizli sekme / farkli tarayici kontrolu: cihaz parmak izine gore Firestore sorgusu
+    const deviceId = await generateDeviceFingerprint();
+    const existsByDevice = await checkFirestoreByDeviceId(deviceId);
+    if (existsByDevice) {
+      markAsVotedLocally();
+      return true;
+    }
+
     return false;
   }
 
   function markVotingStarted() {
     _votingStartedAt = Date.now();
+    // Arka planda Proof of Work baslatilir (kullanici oy verirken cozulur)
+    _powChallenge = generatePowChallenge();
+    _powResult = null;
+    _powPromise = solveProofOfWork(_powChallenge).then(result => {
+      _powResult = result;
+    });
   }
 
   async function submitVote(selections) {
@@ -655,6 +730,14 @@ const AntifraudManager = (() => {
     const elapsed = Date.now() - _votingStartedAt;
     if (elapsed < MIN_VOTING_DURATION_MS) {
       throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
+    }
+
+    // Proof of Work tamamlanmasini bekle
+    if (_powPromise) {
+      await _powPromise;
+    }
+    if (!_powResult || !_powResult.hash || !_powResult.hash.startsWith("0".repeat(POW_DIFFICULTY))) {
+      throw new Error("Guvenlik dogrulamasi basarisiz. Lutfen sayfayi yenileyip tekrar deneyin.");
     }
 
     const cleanedSelections = sanitizeSelections(selections);
