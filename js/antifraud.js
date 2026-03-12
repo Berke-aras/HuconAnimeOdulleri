@@ -36,7 +36,7 @@ const AntifraudManager = (() => {
       }
       return "none";
     } catch (e) {
-      return "err";
+      throw new Error("Ag kontrolü engellendi. Reklam engelleyicinizi (AdGuard vb.) kapatin.");
     }
   }
 
@@ -725,18 +725,14 @@ const AntifraudManager = (() => {
     try {
       visitorId = await getVisitorId();
     } catch (e) {
-      console.warn("VisitorId generation failed:", e);
+      throw new Error("Kimlik dogrulama engellendi. Reklam engelleyicinizi (AdGuard vb.) kapatin.");
     }
 
     if (visitorId) {
-      try {
-        const storedData = await checkFirestore(visitorId);
-        if (storedData) {
-          markAsVotedLocally();
-          return { status: 'visitor_match', data: storedData };
-        }
-      } catch (e) {
-        console.warn("checkFirestore failed (blocked?):", e);
+      const storedData = await checkFirestore(visitorId);
+      if (storedData) {
+        markAsVotedLocally();
+        return { status: 'visitor_match', data: storedData };
       }
     }
 
@@ -749,20 +745,15 @@ const AntifraudManager = (() => {
       return false;
     }
 
-    try {
-      const deviceId = await generateDeviceFingerprint();
-      const hardwareHashes = await generateHardwareHashes();
-      const ipHash = await getIPHash();
-      const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
-      
-      if (matchedData) {
-        markAsVotedLocally();
-        // Gizli sekme vb. durumlarda geri donen data ile sayfada karti gosterebiliriz
-        return { status: "device_block", data: matchedData }; 
-      }
-    } catch (e) {
-      console.error("Advanced fingerprint matching failed:", e);
-      // Bu adım başarısız olursa kullanıcının devam etmesine izin ver
+    const deviceId = await generateDeviceFingerprint();
+    const hardwareHashes = await generateHardwareHashes();
+    const ipHash = await getIPHash();
+    const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
+    
+    if (matchedData) {
+      markAsVotedLocally();
+      // Gizli sekme vb. durumlarda geri donen data ile sayfada karti gosterebiliriz
+      return { status: "device_block", data: matchedData }; 
     }
 
     return false;
@@ -829,23 +820,13 @@ const AntifraudManager = (() => {
     }
 
     // Gonderim oncesi son bir kez daha tekrar oy kontrolu
-    try {
-      const alreadyVotedStatus = await hasAlreadyVoted();
-      if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
-        throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
-      }
-    } catch (err) {
-      console.warn("Pre-submission vote check failed:", err);
-      // Devam etmeyi deneyebiliriz
+    const alreadyVotedStatus = await hasAlreadyVoted();
+    if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
+      throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
     }
 
     // Supheli durum kontrolu (Marking)
-    let trustData = { trustScore: "high" };
-    try {
-      trustData = await checkSuspicionStatus();
-    } catch (err) {
-      console.warn("Suspicion check failed:", err);
-    }
+    const trustData = await checkSuspicionStatus();
 
     try {
       const cleanedSelections = sanitizeSelections(selections);
