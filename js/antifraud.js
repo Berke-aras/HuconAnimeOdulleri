@@ -481,7 +481,7 @@ const AntifraudManager = (() => {
       Math.round(Math.max(screen.width, screen.height) / 100) * 100 + "x" + Math.round(Math.min(screen.width, screen.height) / 100) * 100
     ].join("|"));
 
-    return { audioHash, fontHash, voicesHash, webglHash, canvasHash, hardwareProfile };
+    return { audioHash, fontHash, voicesHash, localIpHash, webglHash, canvasHash, hardwareProfile };
   }
 
   async function generateHardwareSignature() {
