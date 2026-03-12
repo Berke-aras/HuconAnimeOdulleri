@@ -799,6 +799,7 @@ const AntifraudManager = (() => {
         createdAt: Date.now()
       });
 
+      clearRevoteMode(); // Başarılı gönderimden sonra bayrağı temizle
       return nextNumber;
     });
   }
@@ -829,7 +830,7 @@ const AntifraudManager = (() => {
   async function hasAlreadyVoted() {
     // Revote modundaysa yerel ve Firestore kontrollerini atla
     if (isRevoteMode()) {
-      clearRevoteMode();
+      // Artık burada silmiyoruz, başarılı gönderimden sonra submitVote içinde siliyoruz.
       return false;
     }
 
@@ -858,7 +859,6 @@ const AntifraudManager = (() => {
     // 3. Gizli sekme / Cross-browser / IP-Device Kontrolü (KESIN ENGELLEME)
     // Revote modundaysa bu kontrolü de atlıyoruz
     if (isRevoteMode()) {
-      clearRevoteMode();
       return false;
     }
 
