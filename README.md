@@ -89,7 +89,7 @@ Anti-fraud sistemi (v5) asagidaki entropy kaynaklarini kullanir:
 | Canvas Fingerprint | Gradient, arc, bezier cizim farkliliklari | Yuksek |
 | Audio Context | Oscillator + Compressor ses isleme imzasi | Orta |
 | Font Tespiti | 23 farkli font ailesinin varlik kontrolu | Orta |
-| SpeechSynthesis Voices | Tarayicida yuklue ses listesi | Dusuk-Orta |
+| SpeechSynthesis Voices | Tarayicida yuklu ses listesi | Dusuk-Orta |
 | Cihaz Bilgileri | Ekran, RAM, CPU, dokunmatik, timezone | Orta |
 | Network Connection | Baglanti tipi ve hiz bilgisi | Dusuk |
 
@@ -135,7 +135,7 @@ Anti-fraud sistemi (v5) asagidaki entropy kaynaklarini kullanir:
    Content-Security-Policy: script-src 'self' https://www.gstatic.com https://openfpcdn.io https://challenges.cloudflare.com https://cdn.jsdelivr.net;
    ```
 
-3. **Turnstile Token Sunucu Dogrulamasi:** Turnstile token'i simdilik sadece istemci tarafinda toplanıyor. Ideal olarak Firestore Cloud Function ile sunucu tarafinda dogrulanmali.
+3. **Turnstile Token Sunucu Dogrulamasi:** Turnstile token'i simdilik sadece istemci tarafinda toplaniyor. Ideal olarak Firestore Cloud Function ile sunucu tarafinda dogrulanmali.
 
 #### Orta Oncelik
 4. **Rate Limiting:** Firestore Security Rules'a zaman bazli rate limiting ekleyin (ornegin son 1 dakikada en fazla 3 yazma islemi).

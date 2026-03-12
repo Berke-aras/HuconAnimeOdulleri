@@ -279,7 +279,7 @@ const AntifraudManager = (() => {
     });
   }
 
-  // Font kullanilabilirlik testi - her cihazda farkli fontlar yuklue
+  // Font kullanilabilirlik testi - her cihazda farkli fontlar yuklu
   function getFontFingerprint() {
     try {
       const testFonts = [
