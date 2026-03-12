@@ -1,0 +1,9 @@
+# Admin paneli - GitHub Pages'e yuklenmemeli
+local/
+
+# Firestore kurallari - GitHub Pages'te gorunmemeli
+firestore.rules
+
+# OS dosyalari
+.DS_Store
+Thumbs.db

@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /local/
+Disallow: /firestore.rules

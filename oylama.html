@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <title>Oylama - Anime Oylama</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+</head>
+<body>
+  <!-- Loading -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Kontrol ediliyor...</div>
+  </div>
+
+  <!-- Hata Durumu -->
+  <div id="errorSection" class="hero hidden">
+    <div class="hero-content">
+      <div class="hero-logo" style="background: linear-gradient(135deg, #ef4444, #f59e0b);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h1>Baglanti Hatasi</h1>
+      <p class="subtitle">Oylama sistemi su anda kullanilamiyor.</p>
+      <button onclick="location.reload()" class="btn btn-primary" style="margin-top:32px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>
+        </svg>
+        Tekrar Dene
+      </button>
+    </div>
+  </div>
+
+  <!-- Zaten oy verilmis -->
+  <div id="alreadyVotedSection" class="hero hidden">
+    <div class="hero-content">
+      <div class="hero-logo" style="background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));">
+        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <h1>Oyunuz Zaten Alindi!</h1>
+      <p class="subtitle">Bu cihazdan daha once oy verilmis.</p>
+      <div style="display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;justify-content:center;">
+        <a href="hatira.html" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Hatira Kartini Indir
+        </a>
+        <a href="index.html" class="btn btn-secondary">Ana Sayfa</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Oylama Alani -->
+  <div id="voteSection" class="vote-section hidden">
+    <!-- Pill Navigasyon -->
+    <div class="pill-nav-wrap">
+      <nav class="pill-nav" id="pillNav"></nav>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-info">
+        <span class="category-name" id="progressCategoryName"></span>
+        <span id="progressCounter"></span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <!-- Kategori Icerigi -->
+    <div id="categoryContent" class="category-content">
+      <div class="vote-header" id="voteHeader">
+        <h2 id="categoryTitle"></h2>
+        <p id="categorySubtitle">Favorini sec</p>
+      </div>
+      <div class="candidates-grid" id="candidatesGrid"></div>
+      <div class="vote-nav">
+        <button class="btn btn-secondary btn-small" id="prevBtn" onclick="goBack()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+          </svg>
+          Geri
+        </button>
+        <button class="btn btn-primary btn-small" id="nextBtn" onclick="goNext()" disabled>
+          Sonraki
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Onay Ekrani -->
+    <div id="confirmSection" class="confirm-screen hidden">
+      <h2>Secimlerini Onayla</h2>
+      <p class="confirm-subtitle">Son bir kez kontrol et, oylar gonderildikten sonra degistirilemez!</p>
+      <div class="confirm-list" id="confirmList"></div>
+      <div id="recaptchaContainer" style="display:flex;justify-content:center;margin:24px 0;">
+        <div id="recaptchaWidget"></div>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn-secondary" onclick="backToVoting()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+          </svg>
+          Geri Don
+        </button>
+        <button class="btn btn-primary" id="submitBtn" onclick="submitVotes()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Oylari Gonder
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gonderim Loading -->
+  <div id="submitOverlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+    <div class="loading-text">Oylariniz gonderiliyor...</div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://openfpcdn.io/fingerprintjs/v4"></script>
+  <script src="js/data.js"></script>
+  <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/antifraud.js"></script>
+  <script src="js/vote.js"></script>
+</body>
+</html>
