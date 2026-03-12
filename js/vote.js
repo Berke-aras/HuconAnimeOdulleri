@@ -367,7 +367,7 @@ async function submitVotes() {
   let voteCode = null;
   if (isVoteCodeEnabled()) {
     voteCode = voteCodeInput ? voteCodeInput.value : '';
-    if (!voteCode || !voteCode.trim()) {
+    if (!voteCode.trim()) {
       if (voteCodeInput) {
         voteCodeInput.focus();
         voteCodeInput.style.borderColor = '#ef4444';

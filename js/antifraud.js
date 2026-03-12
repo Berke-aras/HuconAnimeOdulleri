@@ -466,7 +466,7 @@ const AntifraudManager = (() => {
     }
 
     const normalized = rawVoteCode.trim().toUpperCase().replace(/\s+/g, "");
-    if (!/^[A-Z0-9-]{6,32}$/.test(normalized)) {
+    if (!/^(?=.*[A-Z0-9])[A-Z0-9-]{6,32}$/.test(normalized)) {
       throw new Error("Oy kodu formati gecersiz.");
     }
     return normalized;
@@ -602,7 +602,7 @@ const AntifraudManager = (() => {
       }
 
       if (voteCodeRef) {
-        if (!voteCodeDoc || !voteCodeDoc.exists) {
+        if (!voteCodeDoc.exists) {
           throw new Error("Oy kodu gecersiz.");
         }
         const voteCodeData = voteCodeDoc.data() || {};
