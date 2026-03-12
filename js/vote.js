@@ -108,7 +108,7 @@ async function revote() {
     document.getElementById('loadingOverlay').classList.add('hidden');
 
     if (voted) {
-      if (typeof voted === 'object' && voted.status === 'device_block' && voted.data) {
+      if (typeof voted === 'object' && (voted.status === 'device_block' || voted.status === 'visitor_match') && voted.data) {
         // Donanim eslesmesi ile kimlik kurtarma (Gizli sekme/Farkli tarayici)
         const d = voted.data;
         const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);

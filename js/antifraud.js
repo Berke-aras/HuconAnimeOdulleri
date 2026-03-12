@@ -559,7 +559,7 @@ const AntifraudManager = (() => {
 
   async function checkFirestore(visitorId) {
     const doc = await db.collection("votes").doc(visitorId).get();
-    return doc.exists;
+    return doc.exists ? { id: doc.id, ...doc.data() } : null;
   }
 
   async function checkDeviceInFirestore(deviceId, ipHash, hashes) {
@@ -590,10 +590,7 @@ const AntifraudManager = (() => {
     if (!hardwareQuery.empty) return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
 
     // Senaryo B: IP aynı ve Audio + (WebGL veya Font) aynı
-    const ipQuery = await db.collection("votes")
-      .where("ipHash", "==", ipHash)
-      .limit(10)
-      .get();
+    const candidates = [];
 
     for (const doc of ipQuery.docs) {
       const v = doc.data();
@@ -601,19 +598,33 @@ const AntifraudManager = (() => {
       if (v.audioHash === hashes.audioHash) matchCount++;
       if (v.webglHash === hashes.webglHash) matchCount++;
       if (v.fontHash === hashes.fontHash) matchCount++;
+      if (v.canvasHash === hashes.canvasHash) matchCount++;
 
-      if (matchCount >= 3) return { id: doc.id, ...v };
+      // 5 sinyalden (IP+4 Donanim) en az 4'ü tutmalı (veya IP hariç 4 donanım tutmalı)
+      if (matchCount >= 4 || (matchCount >= 4 && v.ipHash !== ipHash)) {
+        candidates.push({ id: doc.id, ...v });
+      }
     }
 
-    return null;
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+
+    // Birden fazla aday varsa TIE-BREAKER (Hakem) uygula
+    const targetDrift = parseFloat(getClockDrift());
+    return candidates.sort((a, b) => {
+      const driftA = Math.abs(parseFloat(a.clockDrift || 0) - targetDrift);
+      const driftB = Math.abs(parseFloat(b.clockDrift || 0) - targetDrift);
+      return driftA - driftB; // En küçük saat sapması olan kazanır
+    })[0];
   }
 
   async function saveVoteAtomically(visitorId, selections, trustData = {}) {
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
     const hardwareHashes = await generateHardwareHashes();
-    const hardwareSignature = await sha256(hardwareHashes.audioHash + hardwareHashes.fontHash + hardwareHashes.webglHash + hardwareHashes.hardwareProfile);
+    const hardwareSignature = await sha256(hardwareHashes.canvasHash + hardwareHashes.audioHash + hardwareHashes.fontHash + hardwareHashes.webglHash);
     const ipHash = await getIPHash();
+    const clockDrift = getClockDrift();
     
     // Admin paneli icin detayli donanim bilgisi
     const deviceData = {
@@ -642,6 +653,8 @@ const AntifraudManager = (() => {
         audioHash: hardwareHashes.audioHash,
         webglHash: hardwareHashes.webglHash,
         fontHash: hardwareHashes.fontHash,
+        canvasHash: hardwareHashes.canvasHash,
+        clockDrift: clockDrift,
         ipHash: ipHash,
         deviceData: deviceData,
         trustScore: trustData.trustScore || "high",
@@ -699,20 +712,18 @@ const AntifraudManager = (() => {
     }
 
     // 1. Yerel depo kontrolleri (Hizli)
-    if (getVotedLS()) return true;
-    if (getCookie()) return true;
-    if (getWindowName()) return true;
-    try { if (await getIDB()) return true; } catch (e) { }
-    try { if (await getCacheAPI()) return true; } catch (e) { }
-
+    const localFlag = getVotedLS() || getCookie() || getWindowName();
+    
     // 2. Tarayici bazli Firestore kontrolü (visitorId)
     // Bu durumda HARD BLOCK uyguluyoruz çünkü tarayıcı kimliği tam eşleşiyor.
     const visitorId = await getVisitorId();
-    const visitorExists = await checkFirestore(visitorId);
-    if (visitorExists) {
+    const storedData = await checkFirestore(visitorId);
+    if (storedData) {
       markAsVotedLocally();
-      return true;
+      return { status: 'visitor_match', data: storedData };
     }
+
+    if (localFlag) return true; // Firestore'da yoksa ama localde varsa (belki henüz senkronize olmadı?)
 
     // 3. Gizli sekme / Cross-browser / IP-Device Kontrolü (KESIN ENGELLEME)
     // Revote modundaysa bu kontrolü de atlıyoruz
@@ -739,20 +750,19 @@ const AntifraudManager = (() => {
     const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
 
-    const ipQuery = await db.collection("votes")
-      .where("ipHash", "==", ipHash)
-      .limit(10)
-      .get();
-
+    // IP + Donanim sinyallerini kontrol et
+    const ipQuery = await db.collection("votes").where("ipHash", "==", ipHash).limit(10).get();
+    
     let maxMatch = 0;
-
-    for (const doc of ipQuery.docs) {
+    for(const doc of ipQuery.docs) {
       const v = doc.data();
-      let currentMatch = 1; // IP eslesiyor
-      if (v.audioHash === hardwareHashes.audioHash) currentMatch++;
-      if (v.webglHash === hardwareHashes.webglHash) currentMatch++;
-      if (v.fontHash === hardwareHashes.fontHash) currentMatch++;
-      if (currentMatch > maxMatch) maxMatch = currentMatch;
+      let matchCount = 1; // IP eslesiyor
+      if(v.audioHash === hardwareHashes.audioHash) matchCount++;
+      if(v.webglHash === hardwareHashes.webglHash) matchCount++;
+      if(v.fontHash === hardwareHashes.fontHash) matchCount++;
+      if(v.canvasHash === hardwareHashes.canvasHash) matchCount++;
+      
+      if(matchCount > maxMatch) maxMatch = matchCount;
     }
 
     // IP disindaki donanim eslesmelerine de bakalim (Farkli IP, ayni cihaz)
@@ -760,22 +770,20 @@ const AntifraudManager = (() => {
       .where("audioHash", "==", hardwareHashes.audioHash)
       .where("webglHash", "==", hardwareHashes.webglHash)
       .where("fontHash", "==", hardwareHashes.fontHash)
+      .where("canvasHash", "==", hardwareHashes.canvasHash)
       .limit(1)
       .get();
     
     if (!hardwareQuery.empty) {
-      // 3 donanim bileseni de ayniysa bu en az 3/4 sayilir (IP farkli olsa bile)
-      if (maxMatch < 3) maxMatch = 3;
+      if (maxMatch < 4) maxMatch = 4;
     }
 
-    // 3 ve uzeri zaten hasAlreadyVoted tarafindan engelleniyor olacak, 
-    // ama yine de buraya guvenlik icin ekleyelim.
-    if (maxMatch >= 3) {
-      return { trustScore: "low", suspicionReason: "3plus_match_block_bypass" };
+    // 5 sinyal üzerinden (IP, Audio, WebGL, Font, Canvas)
+    if (maxMatch >= 4) {
+      return { trustScore: "low", suspicionReason: "4plus_match_block_bypass" };
+    } else if (maxMatch === 3) {
+      return { trustScore: "low", suspicionReason: "3_of_5_match" };
     } else if (maxMatch === 2) {
-      return { trustScore: "low", suspicionReason: "2_of_4_match" };
-    } else if (maxMatch === 1) {
-      // Sadece IP tutuyor veya sadece 1 donanim kalem tutuyor (IP farkliysa)
       return { trustScore: "high", suspicionReason: "potential_match" };
     }
 

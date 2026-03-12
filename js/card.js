@@ -548,21 +548,36 @@ function showShareToast(message) {
 let _voteData = null;
 
 (async function init() {
-  let data = getVoteData();
+  let localData = getVoteData();
+  let data = localData;
   
-  if (!data || !data.accessToken || !data.selections || !data.cardNumber) {
-    // Veri yoksa, donanim eslesmesi ile kurtarmayi dene
-    try {
-      const voted = await AntifraudManager.hasAlreadyVoted();
-      if (typeof voted === 'object' && voted.status === 'device_block' && voted.data) {
-        const d = voted.data;
+  // Veri dogrulama ve kurtarma (Tamper Protection)
+  try {
+    const voted = await AntifraudManager.hasAlreadyVoted();
+    if (typeof voted === 'object' && (voted.status === 'device_block' || voted.status === 'visitor_match') && voted.data) {
+      const d = voted.data;
+      
+      // Local veri varsa, DB ile karsilastir (Tamper Check)
+      let needsUpdate = false;
+      if (!localData) {
+        needsUpdate = true;
+      } else {
+        const localSels = JSON.stringify(localData.selections || {});
+        const dbSels = JSON.stringify(d.selections || {});
+        if (localSels !== dbSels || localData.cardNumber !== d.cardNumber) {
+          console.warn("Yerel veri uyusmazligi tespit edildi (Tampering?). DB verileri kullaniliyor.");
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
         const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
         AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
         data = { selections: d.selections, cardNumber: d.cardNumber, accessToken: accessToken };
       }
-    } catch (e) {
-      console.warn("Kurtarma sirasinda hata:", e);
     }
+  } catch (e) {
+    console.warn("Dogrulama sirasinda hata:", e);
   }
 
   _voteData = data;
