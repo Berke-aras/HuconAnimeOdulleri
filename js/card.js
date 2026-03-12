@@ -35,7 +35,19 @@ function getVoteData() {
     if (!raw) {
       try { raw = sessionStorage.getItem(key); } catch (e) {}
     }
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (
+      data &&
+      typeof data === 'object' &&
+      typeof data.cardNumber === 'number' &&
+      typeof data.accessToken === 'string' &&
+      data.selections &&
+      typeof data.selections === 'object'
+    ) {
+      return data;
+    }
+    return null;
   } catch (e) {
     return null;
   }

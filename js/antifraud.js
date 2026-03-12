@@ -1021,7 +1021,22 @@ const AntifraudManager = (() => {
     try {
       let raw = getLS(SELECTIONS_KEY);
       if (!raw) { try { raw = sessionStorage.getItem(SELECTIONS_KEY); } catch (e) { } }
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      
+      const data = JSON.parse(raw);
+      // Şema doğrulaması (Schema validation)
+      if (
+        data &&
+        typeof data === 'object' &&
+        typeof data.cardNumber === 'number' &&
+        typeof data.accessToken === 'string' &&
+        data.accessToken.length > 0 &&
+        data.selections &&
+        typeof data.selections === 'object'
+      ) {
+        return data;
+      }
+      return null;
     } catch (e) { return null; }
   }
 

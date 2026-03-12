@@ -37,11 +37,14 @@
     <h2>1. İşlenen Veriler ve Amaç</h2>
     <p>Oylama sistemimizin adil ve güvenilir kalması amacıyla aşağıdaki teknik veriler işlenmektedir:</p>
     <ul>
-      <li><strong>Hizmet Verisi:</strong> IP adresinizin kriptografik özeti (Hash). Açık IP adresiniz saklanmaz.</li>
-      <li><strong>Teknik Cihaz Bilgisi:</strong> Cihaz parmak izi (AudioContext, GPU modeli, yüklü fontlar gibi anonim donanım sinyalleri).</li>
-      <li><strong>Kullanım Verisi:</strong> Oylama zamanı ve seçilen adaylar.</li>
+      <li><strong>İnternet IP Özeti:</strong> İnternete çıktığınız ağ cihazını tanımak için kullanılır. Aynı ağdan binlerce bot oyunu engellemeye yarar.</li>
+      <li><strong>Yerel IP Özeti (WebRTC):</strong> Aynı Wi-Fi ağındaki (ev, ofis veya okul) farklı cihazlar arasındaki ayrımı yapmak için kullanılır. Böylece kardeşiniz veya iş arkadaşınız kendi cihazından oy verebilirken, sizin cihazınız kısıtlanır.</li>
+      <li><strong>Donanım ve Grafik İmzası (Audio/GPU/Canvas):</strong> Cihazınızın iç bileşenlerini (ses kartı, ekran kartı) tanır. Bu sayede tarayıcınızı gizli sekmeye alsanız veya önbelleği temizleseniz dahi cihazın fiziksel kimliği değişmediği için sistem sizi tanıyabilir.</li>
+      <li><strong>Sistem Profili (Fonts/Voices):</strong> Cihazınızdaki yüklü yazılımsal özellikleri tanır. Bu, donanım imzasına ek bir doğrulama katmanı sağlayarak yanlış eşleşmeleri (false-positives) engellemeye yarar.</li>
+      <li><strong>Saat Sapması (Clock Drift):</strong> İşlemcinizin mikrosaniye seviyesindeki eşsiz çalışma temposunu ölçer. Bu sinyal, tamamen aynı iki model telefon (örn: iki adet iPhone 15) arasındaki mikroskobik kristal farkını tespit ederek onları birbirinden ayırmak için "nihai hakem" görevi görür.</li>
+      <li><strong>Kullanım Verisi:</strong> Oylama işleminin hangi zaman diliminde yapıldığını ve hangi adaylara ilgi gösterildiğini istatistiksel olarak anonimleştirerek kaydeder.</li>
     </ul>
-    <p>Bu veriler <strong>sadece oylama mükerrerliğini (hileli oyları) engellemek</strong> ve oylama istatistiklerini oluşturmak amacıyla işlenir.</p>
+    <p>Bu veriler <strong>sadece oylama mükerrerliğini (hileli oyları) teknik olarak engellemek, oy verilerinizi güvenle kurtarmanızı sağlamak</strong> ve oylama istatistiklerini oluşturmak amacıyla işlenir.</p>
 
     <h2>2. Veri Saklama ve Güvenlik</h2>
     <p>Verileriniz Google Cloud Firestore altyapısında, endüstri standardı şifreleme yöntemleriyle saklanmaktadır. IP adresiniz gibi hassas veriler asla "açık yazı" (plain text) olarak kaydedilmez; sadece geri döndürülemez bir özeti (SHA-256 Hash) tutulur.</p>
