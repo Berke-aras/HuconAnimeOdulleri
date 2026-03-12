@@ -416,7 +416,7 @@ async function submitVotes() {
       document.getElementById('voteSection').classList.add('hidden');
       document.getElementById('alreadyVotedSection').classList.remove('hidden');
     } else {
-      alert('Bir hata olustu. Lutfen tekrar deneyin.');
+      alert(e.message || 'Bir hata olustu. Lutfen tekrar deneyin.');
     }
   }
 }

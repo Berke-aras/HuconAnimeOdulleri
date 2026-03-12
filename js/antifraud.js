@@ -762,10 +762,8 @@ const AntifraudManager = (() => {
       }
     } catch (e) {
       console.error("Advanced fingerprint matching failed:", e);
-      // Bu adım başarısız olursa kullanıcının devam etmesine izin ver (veya blokla, ama şuan izin veriyoruz)
+      // Bu adım başarısız olursa kullanıcının devam etmesine izin ver
     }
-
-    return false;
 
     return false;
   }
@@ -831,20 +829,39 @@ const AntifraudManager = (() => {
     }
 
     // Gonderim oncesi son bir kez daha tekrar oy kontrolu
-    const alreadyVotedStatus = await hasAlreadyVoted();
-    if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
-      throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
+    try {
+      const alreadyVotedStatus = await hasAlreadyVoted();
+      if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
+        throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
+      }
+    } catch (err) {
+      console.warn("Pre-submission vote check failed:", err);
+      // Devam etmeyi deneyebiliriz
     }
 
     // Supheli durum kontrolu (Marking)
-    const trustData = await checkSuspicionStatus();
+    let trustData = { trustScore: "high" };
+    try {
+      trustData = await checkSuspicionStatus();
+    } catch (err) {
+      console.warn("Suspicion check failed:", err);
+    }
 
-    const cleanedSelections = sanitizeSelections(selections);
-    const visitorId = await getVisitorId();
-    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections, trustData);
-    markAsVotedLocally();
+    try {
+      const cleanedSelections = sanitizeSelections(selections);
+      const visitorId = await getVisitorId();
+      const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections, trustData);
+      markAsVotedLocally();
 
-    return { visitorId, cardNumber };
+      return { visitorId, cardNumber };
+    } catch (err) {
+      console.error("Submission failed:", err);
+      if (err.code === 'permission-denied') throw new Error("Yetkiniz yok veya sistem kapali.");
+      if (err.message.includes("offline") || err.message.includes("failed-precondition") || !navigator.onLine) {
+        throw new Error("Baglanti hatasi: Internetinizi veya reklam engelleyicinizi (AdGuard vb.) kontrol edin.");
+      }
+      throw new Error("Oyunuz kaydedilemedi: " + err.message);
+    }
   }
 
   // --- Erisim Tokeni ---
