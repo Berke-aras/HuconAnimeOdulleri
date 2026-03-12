@@ -62,14 +62,14 @@ const AntifraudManager = (() => {
     } catch (e) {
       baseFp = await generateFallbackFingerprint();
     }
-    
+
     try {
       // Ileri Donanim Fingerprintlerini her halukarda bekle ve birlestir (Paralel olarak daha hizli yuklenir)
       const [advancedWebGL, audioFP] = await Promise.all([
         getAdvancedWebGLFingerprint(),
         getAudioContextFingerprint()
       ]);
-      
+
       // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
       const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP;
       return await sha256(combinedRaw);
@@ -108,7 +108,7 @@ const AntifraudManager = (() => {
         gl.useProgram(program);
 
         // Cizim alani tanimla
-        const vertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+        const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
         const vbo = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
@@ -132,7 +132,7 @@ const AntifraudManager = (() => {
         let hash = 0;
         for (let i = 0; i < pixels.length; i++) {
           hash = ((hash << 5) - hash) + pixels[i];
-          hash = hash & hash; 
+          hash = hash & hash;
         }
 
         let vendor = "unknown";
@@ -143,7 +143,7 @@ const AntifraudManager = (() => {
             vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || "unknown";
             renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "unknown";
           }
-        } catch (extError) {}
+        } catch (extError) { }
 
         clearTimeout(timeout);
         resolve(hash.toString(16) + "~" + vendor + "~" + renderer);
@@ -168,7 +168,7 @@ const AntifraudManager = (() => {
 
         // 44100Hz'de 1 saniyelik buffer
         const context = new AudioContext(1, 44100, 44100);
-        
+
         // Oscillator ve Compressor olustur
         const oscillator = context.createOscillator();
         oscillator.type = "triangle";
@@ -196,17 +196,17 @@ const AntifraudManager = (() => {
               hash += Math.abs(buffer[i]);
             }
             resolve(hash.toString());
-          } catch(err) {
+          } catch (err) {
             resolve("audio-err");
           }
         };
 
         const renderPromise = context.startRendering();
         if (renderPromise && typeof renderPromise.catch === "function") {
-            renderPromise.catch(() => {
-                clearTimeout(timeout);
-                resolve("audio-err");
-            });
+          renderPromise.catch(() => {
+            clearTimeout(timeout);
+            resolve("audio-err");
+          });
         }
       } catch (e) {
         clearTimeout(timeout);
@@ -223,7 +223,7 @@ const AntifraudManager = (() => {
       const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
       if (!debugInfo) return "no-debug";
       return gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + "~" +
-             gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
     } catch (e) { return "err"; }
   }
 
@@ -246,27 +246,33 @@ const AntifraudManager = (() => {
   }
 
   // Cihaz-seviyesi parmak izi: tarayicidan BAGIMSIZ sinyaller
-  // Ayni cihazdaki farkli tarayicilarda ayni hash'i uretir
+  // Ayni cihazdaki farkli tarayicilarda ayni hash'i uretmesi hedeflenir
   async function generateDeviceFingerprint() {
+    // Safari gizli sekme vs Normal sekme vs Opera uclemesinde tam eslesme icin
+    // hicbir sekilde cozunurluk (width/height - zoom veya UI yuzunden degisebilir) kullanmiyoruz!
+    // Sadece DONANIMA ve ISLETIM SISTEMINE fiziksel olarak kazinmis verileri kodluyoruz.
+
+    // Not: platform ("MacIntel" vs "Mac") tarayiciya gore degisebiliyor. O da kaldirildi.
     const components = [
-      screen.width + "x" + screen.height,
-      screen.availWidth + "x" + screen.availHeight,
-      screen.colorDepth,
-      window.devicePixelRatio || 1,
-      navigator.hardwareConcurrency || 0,
-      navigator.maxTouchPoints || 0,
-      new Date().getTimezoneOffset(),
-      Intl.DateTimeFormat().resolvedOptions().timeZone || "",
-      navigator.platform || "",
-      navigator.language
+      screen.colorDepth || 24,           // Renk derinligi sabittir
+      navigator.hardwareConcurrency || 0,// Cekirdek sayisi sabittir
+      navigator.maxTouchPoints || 0,     // Dokunmatik limit sabittir
+      new Date().getTimezoneOffset()     // Saat dilimi sabittir (VPN etkilemez)
     ];
+
+    // Ekran genisligini cok kaba bir sekilde ele alalim (100 px tolerans payiyla) 
+    // Boylece ufak UI veya zoom farkliliklarini ezip gecer, ama en azindan PC ile Mobili ayirir.
+    const roughW = Math.round(Math.max(screen.width, screen.height) / 100) * 100;
+    const roughH = Math.round(Math.min(screen.width, screen.height) / 100) * 100;
+    components.push(roughW + "x" + roughH);
+
     return await sha256(components.join("|||"));
   }
 
   // --- Yerel Depolama (6 mekanizma) ---
 
   function setLS(key, val) {
-    try { localStorage.setItem(key, val); } catch (e) {}
+    try { localStorage.setItem(key, val); } catch (e) { }
   }
   function getLS(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -275,7 +281,7 @@ const AntifraudManager = (() => {
   function getVotedLS() { return getLS(_s[0]) !== null; }
 
   function setVotedSS() {
-    try { sessionStorage.setItem(_s[1], "1"); } catch (e) {}
+    try { sessionStorage.setItem(_s[1], "1"); } catch (e) { }
   }
 
   function setCookie() {
@@ -283,7 +289,7 @@ const AntifraudManager = (() => {
       const d = new Date();
       d.setTime(d.getTime() + COOKIE_DAYS * 24 * 60 * 60 * 1000);
       document.cookie = `${COOKIE_NAME}=1;expires=${d.toUTCString()};path=/;SameSite=Strict`;
-    } catch (e) {}
+    } catch (e) { }
   }
   function getCookie() {
     try {
@@ -308,7 +314,7 @@ const AntifraudManager = (() => {
       const idb = await openIDB();
       const tx = idb.transaction(IDB_STORE, "readwrite");
       tx.objectStore(IDB_STORE).put({ id: _s[2], ts: Date.now() });
-    } catch (e) {}
+    } catch (e) { }
   }
   async function getIDB() {
     try {
@@ -327,7 +333,7 @@ const AntifraudManager = (() => {
       if (!("caches" in window)) return;
       const cache = await caches.open(IDB_NAME);
       await cache.put("/_vf", new Response(Date.now().toString()));
-    } catch (e) {}
+    } catch (e) { }
   }
   async function getCacheAPI() {
     try {
@@ -344,7 +350,7 @@ const AntifraudManager = (() => {
         existing.push(_k);
         window.name = existing.join("|");
       }
-    } catch (e) {}
+    } catch (e) { }
   }
   function getWindowName() {
     try { return window.name.includes(_k); } catch (e) { return false; }
@@ -420,11 +426,11 @@ const AntifraudManager = (() => {
   }
 
   function enableRevoteMode() {
-    try { sessionStorage.setItem(_k + '_revote', '1'); } catch (e) {}
+    try { sessionStorage.setItem(_k + '_revote', '1'); } catch (e) { }
   }
 
   function clearRevoteMode() {
-    try { sessionStorage.removeItem(_k + '_revote'); } catch (e) {}
+    try { sessionStorage.removeItem(_k + '_revote'); } catch (e) { }
   }
 
   async function hasAlreadyVoted() {
@@ -437,8 +443,8 @@ const AntifraudManager = (() => {
     if (getVotedLS()) return true;
     if (getCookie()) return true;
     if (getWindowName()) return true;
-    try { if (await getIDB()) return true; } catch (e) {}
-    try { if (await getCacheAPI()) return true; } catch (e) {}
+    try { if (await getIDB()) return true; } catch (e) { }
+    try { if (await getCacheAPI()) return true; } catch (e) { }
 
     const visitorId = await getVisitorId();
     const exists = await checkFirestore(visitorId);
@@ -481,47 +487,47 @@ const AntifraudManager = (() => {
     try {
       const data = JSON.stringify({ selections, cardNumber, accessToken, ts: Date.now() });
       setLS(SELECTIONS_KEY, data);
-      try { sessionStorage.setItem(SELECTIONS_KEY, data); } catch (e) {}
-    } catch (e) {}
+      try { sessionStorage.setItem(SELECTIONS_KEY, data); } catch (e) { }
+    } catch (e) { }
   }
 
   function getVoteData() {
     try {
       let raw = getLS(SELECTIONS_KEY);
-      if (!raw) { try { raw = sessionStorage.getItem(SELECTIONS_KEY); } catch (e) {} }
+      if (!raw) { try { raw = sessionStorage.getItem(SELECTIONS_KEY); } catch (e) { } }
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
 
   async function clearLocalVoteData() {
     // LocalStorage - vote flag + selections
-    try { localStorage.removeItem(_s[0]); } catch (e) {}
-    try { localStorage.removeItem(SELECTIONS_KEY); } catch (e) {}
+    try { localStorage.removeItem(_s[0]); } catch (e) { }
+    try { localStorage.removeItem(SELECTIONS_KEY); } catch (e) { }
     // SessionStorage
-    try { sessionStorage.removeItem(_s[1]); } catch (e) {}
-    try { sessionStorage.removeItem(SELECTIONS_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(_s[1]); } catch (e) { }
+    try { sessionStorage.removeItem(SELECTIONS_KEY); } catch (e) { }
     // Cookie
     try {
       document.cookie = `${COOKIE_NAME}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Strict`;
-    } catch (e) {}
+    } catch (e) { }
     // IndexedDB
     try {
       const idb = await openIDB();
       const tx = idb.transaction(IDB_STORE, "readwrite");
       tx.objectStore(IDB_STORE).delete(_s[2]);
-    } catch (e) {}
+    } catch (e) { }
     // CacheAPI
     try {
       if ("caches" in window) {
         const cache = await caches.open(IDB_NAME);
         await cache.delete("/_vf");
       }
-    } catch (e) {}
+    } catch (e) { }
     // window.name
     try {
       const parts = window.name ? window.name.split("|") : [];
       window.name = parts.filter(p => p !== _k).join("|");
-    } catch (e) {}
+    } catch (e) { }
   }
 
   return {
