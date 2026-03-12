@@ -24,7 +24,7 @@ Gizli sekme/farkli tarayici tekrar oylarini cihaz/IP/hesap bagimsiz engellemek i
 
 1. `js/data.js` icinde `SITE_CONFIG.voteCode.enabled: true` birakin
 2. Firestore'da `voteCodes` koleksiyonu acin
-3. Her kod icin dokuman ID'sini `SHA-256("animeoy-vote-code|KOD")` olacak sekilde olusturun
+3. Her kod icin dokuman ID'sini `SHA-256(pepper + "|" + KOD)` olacak sekilde olusturun (pepper degeri `SITE_CONFIG.voteCode.pepper`)
 4. Dokuman icerigi en az `{ usedAt: null }` olsun
 
 Oy gonderildiginde kod tek transaction icinde `usedAt/usedBy` ile isaretlenir ve ikinci kez kullanilamaz.

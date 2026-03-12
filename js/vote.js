@@ -409,10 +409,14 @@ async function submitVotes() {
       turnstileToken = null;
     }
 
-    if (e.message.includes('zaten')) {
+    if (e && e.code === 'DUPLICATE_VOTE') {
       document.getElementById('voteSection').classList.add('hidden');
       document.getElementById('alreadyVotedSection').classList.remove('hidden');
-    } else if (e.message.includes('kodu') || e.message.includes('kod')) {
+    } else if (e && (
+      e.code === 'INVALID_VOTE_CODE' ||
+      e.code === 'USED_VOTE_CODE' ||
+      e.code === 'INVALID_VOTE_CODE_FORMAT'
+    )) {
       alert(e.message);
     } else {
       alert('Bir hata olustu. Lutfen tekrar deneyin.');

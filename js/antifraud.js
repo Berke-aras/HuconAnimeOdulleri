@@ -25,6 +25,12 @@ const AntifraudManager = (() => {
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
+  function createError(message, code) {
+    const err = new Error(message);
+    err.code = code;
+    return err;
+  }
+
   // --- Parmak Izi ---
 
   async function generateFallbackFingerprint() {
@@ -462,12 +468,12 @@ const AntifraudManager = (() => {
 
   function normalizeVoteCode(rawVoteCode) {
     if (typeof rawVoteCode !== "string") {
-      throw new Error("Gecersiz oy kodu.");
+      throw createError("Gecersiz oy kodu.", "INVALID_VOTE_CODE_FORMAT");
     }
 
     const normalized = rawVoteCode.trim().toUpperCase().replace(/\s+/g, "");
-    if (!/^(?=.*[A-Z0-9])[A-Z0-9-]{6,32}$/.test(normalized)) {
-      throw new Error("Oy kodu formati gecersiz.");
+    if (!/^[A-Z0-9](?:[A-Z0-9-]{4,30}[A-Z0-9])$/.test(normalized)) {
+      throw createError("Oy kodu formati gecersiz.", "INVALID_VOTE_CODE_FORMAT");
     }
     return normalized;
   }
@@ -598,16 +604,16 @@ const AntifraudManager = (() => {
       const voteCodeDoc = voteCodeRef ? await tx.get(voteCodeRef) : null;
 
       if (voteDoc.exists) {
-        throw new Error("Bu ziyaretci zaten oy vermis.");
+        throw createError("Bu ziyaretci zaten oy vermis.", "DUPLICATE_VOTE");
       }
 
       if (voteCodeRef) {
         if (!voteCodeDoc.exists) {
-          throw new Error("Oy kodu gecersiz.");
+          throw createError("Oy kodu gecersiz.", "INVALID_VOTE_CODE");
         }
         const voteCodeData = voteCodeDoc.data() || {};
         if (voteCodeData.usedAt || voteCodeData.usedBy) {
-          throw new Error("Bu oy kodu daha once kullanilmis.");
+          throw createError("Bu oy kodu daha once kullanilmis.", "USED_VOTE_CODE");
         }
       }
 
