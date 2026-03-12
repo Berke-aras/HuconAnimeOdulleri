@@ -393,42 +393,45 @@ const AntifraudManager = (() => {
 
   // Cihaz-seviyesi parmak izi: tarayicidan BAGIMSIZ sinyaller
   // Ayni cihazdaki farkli tarayicilarda ayni hash'i uretmesi hedeflenir
-  async function generateDeviceFingerprint() {
-    // Ag baglanti bilgisi - cihaza ozel ek sinyal
-    let connectionInfo = "";
-    try {
-      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      if (conn) {
-        connectionInfo = [conn.type || "", conn.effectiveType || "", conn.downlinkMax || 0].join(",");
-      }
-    } catch (e) {}
-
-    // Audio Fingerprint (Cross-browser icin cok kararlidir)
-    const audioFP = await getAudioContextFingerprint();
-    // Font ve WebGL Donanim bilgileri (Benzersizligi artirir)
-    const fontFP = getFontFingerprint();
+  async function generateHardwareHashes() {
+    const audioRaw = await getAudioContextFingerprint();
+    const fontRaw = getFontFingerprint();
     const webglHardware = getWebGLFingerprint();
+    const webglAdvanced = await getAdvancedWebGLFingerprint();
 
-    // Sadece DONANIMA ve ISLETIM SISTEMINE fiziksel olarak kazinmis verileri kodluyoruz.
+    // Ses ve fontlari hashliyoruz
+    const audioHash = await sha256(audioRaw);
+    const fontHash = await sha256(fontRaw);
+    
+    // WebGL icin hem ham donanim bilgisini hem de shader hesaplama sonucunu kullaniyoruz
+    const webglHash = await sha256(webglHardware + "|||" + webglAdvanced);
+
+    // Kaba ekran/donanim profili (False positive engellemek icin ek sigorta)
+    const hardwareProfile = await sha256([
+      screen.colorDepth || 24,
+      navigator.hardwareConcurrency || 0,
+      navigator.maxTouchPoints || 0,
+      navigator.deviceMemory || 0,
+      new Date().getTimezoneOffset(),
+      Math.round(Math.max(screen.width, screen.height) / 100) * 100 + "x" + Math.round(Math.min(screen.width, screen.height) / 100) * 100
+    ].join("|"));
+
+    return { audioHash, fontHash, webglHash, hardwareProfile };
+  }
+
+  async function generateHardwareSignature() {
+    const { audioHash, fontHash, webglHash, hardwareProfile } = await generateHardwareHashes();
+    return await sha256(audioHash + fontHash + webglHash + hardwareProfile);
+  }
+
+  async function generateDeviceFingerprint() {
+    const hardware = await generateHardwareSignature();
     const components = [
-      screen.colorDepth || 24,           // Renk derinligi sabittir
-      navigator.hardwareConcurrency || 0,// Cekirdek sayisi sabittir
-      navigator.maxTouchPoints || 0,     // Dokunmatik limit sabittir
-      navigator.deviceMemory || 0,       // RAM bilgisi sabittir
-      new Date().getTimezoneOffset(),    // Saat dilimi sabittir
-      connectionInfo,
-      audioFP,                           // Donanim tabanli ses isleme imzasi
-      fontFP,                            // Yuklu font listesi (OS bazli)
-      webglHardware,                     // Ekran karti modeli (Unmasked)
-      navigator.pdfViewerEnabled !== undefined ? navigator.pdfViewerEnabled : "na"
+      hardware,
+      navigator.pdfViewerEnabled ? "pdf" : "no-pdf",
+      navigator.languages ? navigator.languages[0] : "tr"
     ];
-
-    // Ekran genisligini cok kaba bir sekilde ele alalim (100 px tolerans payiyla) 
-    const roughW = Math.round(Math.max(screen.width, screen.height) / 100) * 100;
-    const roughH = Math.round(Math.min(screen.width, screen.height) / 100) * 100;
-    components.push(roughW + "x" + roughH);
-
-    return await sha256(components.join("|||"));
+    return await sha256(components.join(":::"));
   }
 
   function sanitizeSelections(selections) {
@@ -558,22 +561,56 @@ const AntifraudManager = (() => {
     return doc.exists;
   }
 
-  async function checkDeviceInFirestore(deviceId, ipHash) {
-    // IP Hash + DeviceId kombinasyonu ile kesin ve güvenli eşleşme
-    const query = await db.collection("votes")
+  async function checkDeviceInFirestore(deviceId, ipHash, hashes) {
+    // 1. Kesin DeviceId eslesmesi (Ayni tarayici) - HER ZAMAN ENGELLE
+    const exactQuery = await db.collection("votes")
       .where("deviceId", "==", deviceId)
       .where("ipHash", "==", ipHash)
       .limit(1)
       .get();
-    return !query.empty;
+    
+    if (!exactQuery.empty) return true;
+
+    // 2. 3/4 Eşleşme Mantığı (IP, Audio, WebGL, Font)
+    // Firestore'da 'or' sorgulari kısıtlı oldugu icin akilli bir yaklaşım kullanıyoruz.
+    
+    // Senaryo A: Donanım birebir aynı ama IP farklı (Mobil veriye geçiş vb.)
+    const hardwareQuery = await db.collection("votes")
+      .where("audioHash", "==", hashes.audioHash)
+      .where("webglHash", "==", hashes.webglHash)
+      .where("fontHash", "==", hashes.fontHash)
+      .limit(1)
+      .get();
+    if (!hardwareQuery.empty) return true;
+
+    // Senaryo B: IP aynı ve donanım kalemlerinden en az 2 tanesi aynı
+    // Bu durumda IP + 2 Donanım = 3/4 eşleşme olur.
+    const ipQuery = await db.collection("votes")
+      .where("ipHash", "==", ipHash)
+      .limit(10) // Aynı IP'den gelen son 10 oyu kontrol et
+      .get();
+
+    for (const doc of ipQuery.docs) {
+      const v = doc.data();
+      let matchCount = 1; // IP zaten eşleşiyor
+      if (v.audioHash === hashes.audioHash) matchCount++;
+      if (v.webglHash === hashes.webglHash) matchCount++;
+      if (v.fontHash === hashes.fontHash) matchCount++;
+
+      if (matchCount >= 3) return true;
+    }
+
+    return false;
   }
 
   async function saveVoteAtomically(visitorId, selections, trustData = {}) {
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
+    const hardwareHashes = await generateHardwareHashes();
+    const hardwareSignature = await sha256(hardwareHashes.audioHash + hardwareHashes.fontHash + hardwareHashes.webglHash + hardwareHashes.hardwareProfile);
     const ipHash = await getIPHash();
     
-    // Admin paneli icin detayli donanim bilgisi (insan tarafindan okunabilir)
+    // Admin paneli icin detayli donanim bilgisi
     const deviceData = {
       memory: navigator.deviceMemory || "bilinmiyor",
       cores: navigator.hardwareConcurrency || "bilinmiyor",
@@ -591,48 +628,38 @@ const AntifraudManager = (() => {
       const counterDoc = await tx.get(counterRef);
       const voteDoc = await tx.get(voteRef);
 
+      const commonData = {
+        updatedAt: Date.now(),
+        visitorId: visitorId,
+        fingerprintHash: fingerprintHash,
+        deviceId: deviceId,
+        hardwareSignature: hardwareSignature,
+        audioHash: hardwareHashes.audioHash,
+        webglHash: hardwareHashes.webglHash,
+        fontHash: hardwareHashes.fontHash,
+        ipHash: ipHash,
+        deviceData: deviceData,
+        trustScore: trustData.trustScore || "high",
+        suspicionReason: trustData.suspicionReason || null,
+        userAgent: navigator.userAgent
+      };
+
       if (voteDoc.exists) {
-        // Kullanici daha once oy vermis ama yerel verisi kaybolmus
-        // Mevcut oy kaydini guncelle, kart numarasini koru
         const existingData = voteDoc.data();
-        tx.update(voteRef, {
-          selections: selections,
-          updatedAt: Date.now(),
-          fingerprintHash: fingerprintHash,
-          deviceId: deviceId,
-          ipHash: ipHash,
-          trustScore: trustData.trustScore || "high",
-          suspicionReason: trustData.suspicionReason || null,
-          deviceData: deviceData,
-          userAgent: navigator.userAgent
-        });
+        tx.update(voteRef, { ...commonData, selections: selections });
         return existingData.cardNumber;
       }
 
-      let newCount;
-      if (counterDoc.exists) {
-        newCount = (counterDoc.data().count || 0) + 1;
-        tx.update(counterRef, { count: newCount });
-      } else {
-        newCount = 1;
-        tx.set(counterRef, { count: 1 });
-      }
-
+      const nextNumber = counterDoc.exists ? (counterDoc.data().count || 0) + 1 : 1;
+      tx.set(counterRef, { count: nextNumber });
       tx.set(voteRef, {
+        ...commonData,
+        cardNumber: nextNumber,
         selections: selections,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        fingerprintHash: fingerprintHash,
-        deviceId: deviceId,
-        ipHash: ipHash,
-        trustScore: trustData.trustScore || "high",
-        suspicionReason: trustData.suspicionReason || null,
-        deviceData: deviceData,
-        userAgent: navigator.userAgent,
-        cardNumber: newCount,
         createdAt: Date.now()
       });
 
-      return newCount;
+      return nextNumber;
     });
   }
 
@@ -690,13 +717,12 @@ const AntifraudManager = (() => {
     }
 
     const deviceId = await generateDeviceFingerprint();
+    const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
-    const deviceExists = await checkDeviceInFirestore(deviceId, ipHash);
+    const deviceExists = await checkDeviceInFirestore(deviceId, ipHash, hardwareHashes);
     
     if (deviceExists) {
       markAsVotedLocally();
-      // submitVote icinde ozellestirilmis hata mesaji vermek icin 
-      // bir flag set edebiliriz veya direkt true donebiliriz.
       return "device_block"; 
     }
 
@@ -704,16 +730,49 @@ const AntifraudManager = (() => {
   }
 
   async function checkSuspicionStatus() {
-    const deviceId = await generateDeviceFingerprint();
+    const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
-    const exists = await checkDeviceInFirestore(deviceId, ipHash);
 
-    if (exists) {
-      return {
-        trustScore: "low",
-        suspicionReason: "device_ip_match"
-      };
+    const ipQuery = await db.collection("votes")
+      .where("ipHash", "==", ipHash)
+      .limit(10)
+      .get();
+
+    let maxMatch = 0;
+
+    for (const doc of ipQuery.docs) {
+      const v = doc.data();
+      let currentMatch = 1; // IP eslesiyor
+      if (v.audioHash === hardwareHashes.audioHash) currentMatch++;
+      if (v.webglHash === hardwareHashes.webglHash) currentMatch++;
+      if (v.fontHash === hardwareHashes.fontHash) currentMatch++;
+      if (currentMatch > maxMatch) maxMatch = currentMatch;
     }
+
+    // IP disindaki donanim eslesmelerine de bakalim (Farkli IP, ayni cihaz)
+    const hardwareQuery = await db.collection("votes")
+      .where("audioHash", "==", hardwareHashes.audioHash)
+      .where("webglHash", "==", hardwareHashes.webglHash)
+      .where("fontHash", "==", hardwareHashes.fontHash)
+      .limit(1)
+      .get();
+    
+    if (!hardwareQuery.empty) {
+      // 3 donanim bileseni de ayniysa bu en az 3/4 sayilir (IP farkli olsa bile)
+      if (maxMatch < 3) maxMatch = 3;
+    }
+
+    // 3 ve uzeri zaten hasAlreadyVoted tarafindan engelleniyor olacak, 
+    // ama yine de buraya guvenlik icin ekleyelim.
+    if (maxMatch >= 3) {
+      return { trustScore: "low", suspicionReason: "3plus_match_block_bypass" };
+    } else if (maxMatch === 2) {
+      return { trustScore: "low", suspicionReason: "2_of_4_match" };
+    } else if (maxMatch === 1) {
+      // Sadece IP tutuyor veya sadece 1 donanim kalem tutuyor (IP farkliysa)
+      return { trustScore: "high", suspicionReason: "potential_match" };
+    }
+
     return {
       trustScore: "high",
       suspicionReason: null
@@ -822,6 +881,7 @@ const AntifraudManager = (() => {
     clearRevoteMode,
     sha256,
     getIPHash,
+    generateHardwareSignature,
     SELECTIONS_KEY
   };
 })();
