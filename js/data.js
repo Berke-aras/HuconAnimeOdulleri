@@ -12,7 +12,15 @@ const SITE_CONFIG = {
   cardBackground: "img/card-bg.png",
   // Cloudflare Turnstile Site Key - https://dash.cloudflare.com/ adresinden alin
   // Aktif etmek icin kendi site key'inizi yazin, bos birakinca captcha devre disi kalir
-  turnstileSiteKey: "0x4AAAAAACpuof0p4A94Fkmq"
+  turnstileSiteKey: "0x4AAAAAACpuof0p4A94Fkmq",
+  // Cihaz/IP/hesap bagimsiz tek-kullanimlik kod korumasi
+  // Firestore'da voteCodes koleksiyonuna SHA-256(pepper + "|" + KOD) hash'i ile dokuman acin.
+  // Her dokuman baslangicta { usedAt: null } olmali; kullanilinca usedAt/usedBy alanlari yazilir.
+  voteCode: {
+    enabled: true,
+    collection: "voteCodes",
+    pepper: "animeoy-vote-code"
+  }
 };
 
 const CATEGORIES = [

@@ -14,6 +14,8 @@ const AntifraudManager = (() => {
   const SELECTIONS_KEY = _k + "_sel";
 
   const MIN_VOTING_DURATION_MS = 15000;
+  const DEFAULT_VOTE_CODE_COLLECTION = "voteCodes";
+  const DEFAULT_VOTE_CODE_PEPPER = "animeoy-vote-code";
   let _votingStartedAt = 0;
 
   async function sha256(message) {
@@ -442,6 +444,34 @@ const AntifraudManager = (() => {
     return cleanedSelections;
   }
 
+  function getVoteCodeConfig() {
+    const cfg = (typeof SITE_CONFIG === "object" && SITE_CONFIG && SITE_CONFIG.voteCode)
+      ? SITE_CONFIG.voteCode
+      : null;
+
+    return {
+      enabled: !!(cfg && cfg.enabled),
+      collection: (cfg && typeof cfg.collection === "string" && cfg.collection.trim())
+        ? cfg.collection.trim()
+        : DEFAULT_VOTE_CODE_COLLECTION,
+      pepper: (cfg && typeof cfg.pepper === "string" && cfg.pepper)
+        ? cfg.pepper
+        : DEFAULT_VOTE_CODE_PEPPER
+    };
+  }
+
+  function normalizeVoteCode(rawVoteCode) {
+    if (typeof rawVoteCode !== "string") {
+      throw new Error("Gecersiz oy kodu.");
+    }
+
+    const normalized = rawVoteCode.trim().toUpperCase().replace(/\s+/g, "");
+    if (!/^[A-Z0-9-]{6,32}$/.test(normalized)) {
+      throw new Error("Oy kodu formati gecersiz.");
+    }
+    return normalized;
+  }
+
   // --- Yerel Depolama (6 mekanizma) ---
 
   function setLS(key, val) {
@@ -537,9 +567,13 @@ const AntifraudManager = (() => {
     return doc.exists;
   }
 
-  async function saveVoteAtomically(visitorId, selections) {
+  async function saveVoteAtomically(visitorId, selections, voteCode) {
+    const voteCodeConfig = getVoteCodeConfig();
     const fingerprintHash = await sha256(visitorId + navigator.userAgent);
     const deviceId = await generateDeviceFingerprint();
+    const voteCodeHash = voteCodeConfig.enabled
+      ? await sha256(voteCodeConfig.pepper + "|" + voteCode)
+      : null;
     
     // Admin paneli icin detayli donanim bilgisi (insan tarafindan okunabilir)
     const deviceData = {
@@ -554,24 +588,27 @@ const AntifraudManager = (() => {
 
     const counterRef = db.collection("meta").doc("counter");
     const voteRef = db.collection("votes").doc(visitorId);
+    const voteCodeRef = voteCodeConfig.enabled
+      ? db.collection(voteCodeConfig.collection).doc(voteCodeHash)
+      : null;
 
     return db.runTransaction(async (tx) => {
       const counterDoc = await tx.get(counterRef);
       const voteDoc = await tx.get(voteRef);
+      const voteCodeDoc = voteCodeRef ? await tx.get(voteCodeRef) : null;
 
       if (voteDoc.exists) {
-        // Kullanici daha once oy vermis ama yerel verisi kaybolmus
-        // Mevcut oy kaydini guncelle, kart numarasini koru
-        const existingData = voteDoc.data();
-        tx.update(voteRef, {
-          selections: selections,
-          updatedAt: Date.now(),
-          fingerprintHash: fingerprintHash,
-          deviceId: deviceId,
-          deviceData: deviceData,
-          userAgent: navigator.userAgent
-        });
-        return existingData.cardNumber;
+        throw new Error("Bu ziyaretci zaten oy vermis.");
+      }
+
+      if (voteCodeRef) {
+        if (!voteCodeDoc || !voteCodeDoc.exists) {
+          throw new Error("Oy kodu gecersiz.");
+        }
+        const voteCodeData = voteCodeDoc.data() || {};
+        if (voteCodeData.usedAt || voteCodeData.usedBy) {
+          throw new Error("Bu oy kodu daha once kullanilmis.");
+        }
       }
 
       let newCount;
@@ -590,9 +627,17 @@ const AntifraudManager = (() => {
         deviceId: deviceId,
         deviceData: deviceData,
         userAgent: navigator.userAgent,
+        voteCodeHash: voteCodeHash,
         cardNumber: newCount,
         createdAt: Date.now()
       });
+
+      if (voteCodeRef) {
+        tx.update(voteCodeRef, {
+          usedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          usedBy: visitorId
+        });
+      }
 
       return newCount;
     });
@@ -648,7 +693,7 @@ const AntifraudManager = (() => {
     _votingStartedAt = Date.now();
   }
 
-  async function submitVote(selections) {
+  async function submitVote(selections, voteCode) {
     if (_votingStartedAt === 0) {
       throw new Error("Oylama oturumu baslatilmadi. Lutfen sayfayi yenileyip tekrar deneyin.");
     }
@@ -658,8 +703,10 @@ const AntifraudManager = (() => {
     }
 
     const cleanedSelections = sanitizeSelections(selections);
+    const voteCodeConfig = getVoteCodeConfig();
+    const normalizedVoteCode = voteCodeConfig.enabled ? normalizeVoteCode(voteCode) : null;
     const visitorId = await getVisitorId();
-    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections);
+    const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections, normalizedVoteCode);
     markAsVotedLocally();
 
     return { visitorId, cardNumber };

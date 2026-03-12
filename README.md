@@ -18,6 +18,17 @@ Firebase Console > Firestore > Kurallar sekmesine `firestore.rules` dosyasinin i
 
 **Onemli:** `list: false` kurali sayesinde kimse toplu oy verisi okuyamaz. Sonuclari sadece Firebase Console'dan gorebilirsiniz.
 
+### 2.1 Tek Kullanimlik Oy Kodlari (onerilen)
+
+Gizli sekme/farkli tarayici tekrar oylarini cihaz/IP/hesap bagimsiz engellemek icin her katilimciya tek kullanimlik kod dagitin.
+
+1. `js/data.js` icinde `SITE_CONFIG.voteCode.enabled: true` birakin
+2. Firestore'da `voteCodes` koleksiyonu acin
+3. Her kod icin dokuman ID'sini `SHA-256("animeoy-vote-code|KOD")` olacak sekilde olusturun
+4. Dokuman icerigi en az `{ usedAt: null }` olsun
+
+Oy gonderildiginde kod tek transaction icinde `usedAt/usedBy` ile isaretlenir ve ikinci kez kullanilamaz.
+
 ### 3. Kategori ve Adaylar
 
 `js/data.js` dosyasini duzenleyin.
@@ -74,6 +85,7 @@ Firestore guvenlik kurallari `list: false` oldugu icin, oy sonuclari istemci tar
 | 7 | Firestore Security Rules | Ayni ID'ye ikinci yazma engeli + veri dogrulama |
 | 8 | Bot Korumasi | Minimum oylama suresi kontrolu (15sn) |
 | 9 | Cloudflare Turnstile | CAPTCHA bot korumasi |
+| 10 | Tek Kullanimlik Oy Kodu | Cihaz/IP/hesap bagimsiz tekrar oyu engeller |
 
 Bir kullanici tekrar oy vermek icin TUM bu katmanlari ayni anda atlatmasi gerekir.
 

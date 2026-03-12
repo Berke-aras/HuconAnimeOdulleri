@@ -10,6 +10,10 @@ let turnstileToken = null;
 // Aynı kategoride scroll davranisini sadece ilk secimde calistirmak icin
 const scrolledForCategory = {};
 
+function isVoteCodeEnabled() {
+  return !!(typeof SITE_CONFIG === 'object' && SITE_CONFIG && SITE_CONFIG.voteCode && SITE_CONFIG.voteCode.enabled);
+}
+
 // XSS onleme: HTML ozel karakterlerini encode et
 function escapeHTML(str) {
   const div = document.createElement('div');
@@ -338,6 +342,15 @@ function showConfirmScreen() {
     list.appendChild(item);
   });
 
+  const voteCodeContainer = document.getElementById('voteCodeContainer');
+  const voteCodeInput = document.getElementById('voteCodeInput');
+  if (voteCodeContainer) {
+    voteCodeContainer.classList.toggle('hidden', !isVoteCodeEnabled());
+  }
+  if (voteCodeInput) {
+    voteCodeInput.value = '';
+  }
+
   // Turnstile widget'ini onay ekraninda renderla
   setTimeout(() => renderTurnstile(), 100);
 }
@@ -349,6 +362,20 @@ function backToVoting() {
 
 async function submitVotes() {
   const submitBtn = document.getElementById('submitBtn');
+  const voteCodeInput = document.getElementById('voteCodeInput');
+
+  let voteCode = null;
+  if (isVoteCodeEnabled()) {
+    voteCode = voteCodeInput ? voteCodeInput.value : '';
+    if (!voteCode || !voteCode.trim()) {
+      if (voteCodeInput) {
+        voteCodeInput.focus();
+        voteCodeInput.style.borderColor = '#ef4444';
+        setTimeout(() => { voteCodeInput.style.borderColor = ''; }, 2500);
+      }
+      return;
+    }
+  }
 
   if (typeof turnstile !== 'undefined' && turnstileWidgetId !== null) {
     if (!turnstileToken) {
@@ -366,7 +393,7 @@ async function submitVotes() {
   document.getElementById('submitOverlay').classList.remove('hidden');
 
   try {
-    const result = await AntifraudManager.submitVote(selections);
+    const result = await AntifraudManager.submitVote(selections, voteCode);
 
     const accessToken = await AntifraudManager.generateAccessToken(
       result.visitorId, result.cardNumber
@@ -385,6 +412,8 @@ async function submitVotes() {
     if (e.message.includes('zaten')) {
       document.getElementById('voteSection').classList.add('hidden');
       document.getElementById('alreadyVotedSection').classList.remove('hidden');
+    } else if (e.message.includes('kodu') || e.message.includes('kod')) {
+      alert(e.message);
     } else {
       alert('Bir hata olustu. Lutfen tekrar deneyin.');
     }
