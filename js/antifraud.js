@@ -168,7 +168,8 @@ const AntifraudManager = (() => {
         // Pikselleri temizle
         let hash = 0;
         for (let i = 0; i < pixels.length; i++) {
-          hash = ((hash << 5) - hash) + pixels[i];
+          const p = pixels[i] || 0;
+          hash = ((hash << 5) - hash) + p;
           hash = hash & hash;
         }
 
@@ -259,10 +260,11 @@ const AntifraudManager = (() => {
           clearTimeout(timeout);
           try {
             const buffer = event.renderedBuffer.getChannelData(0);
-            // Daha genis aralik ve daha kararlı hash (Sadece tam sayilari kullan)
+            // Gürültüye (noise) karşı daha dirençli: Düşük frekanslı örnekleri normalize et
             let hash = 5381;
-            for (let i = 4000; i < 6000; i += 2) {
-              const val = Math.floor(Math.abs(buffer[i] || 0) * 10000);
+            for (let i = 0; i < buffer.length; i += 100) {
+              // Değerleri belli bir hassasiyete yuvarlayarak mikro-gürültüleri yoksayalım
+              const val = Math.floor(Math.abs(buffer[i] || 0) * 1000);
               hash = ((hash << 5) + hash) + val;
             }
             hash = hash & 0x7fffffff;
@@ -397,14 +399,23 @@ const AntifraudManager = (() => {
       ctx.arc(200, 30, 15, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,0,128,0.5)";
       ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(230, 5);
-      ctx.bezierCurveTo(240, 25, 260, 35, 275, 55);
-      ctx.strokeStyle = "rgba(0,128,255,0.6)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // toDataURL yerine ham piksel verisini (ImageData) hash'liyoruz.
+      // Safari gibi tarayicilar gizli sekmede toDataURL'e gürültü ekler, 
+      // ImageData üzerinden bit-masking yaparak bu gürültüyü eziyoruz.
+      const pixels = ctx.getImageData(0, 0, 280, 60).data;
+      let hash = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        // En düsük 1-2 biti maskeleyerek (yok sayarak) tarayicinin eklediği minik gürültüleri eliyoruz
+        const r = pixels[i] & 0xFC;
+        const g = pixels[i+1] & 0xFC;
+        const b = pixels[i+2] & 0xFC;
+        const a = pixels[i+3] & 0xFC;
+        
+        hash = ((hash << 5) - hash) + (r + g + b + a);
+        hash = hash & hash;
+      }
 
-      return canvas.toDataURL();
+      return "canvas-" + Math.abs(hash).toString(16);
     } catch (e) { return "err"; }
   }
 
@@ -602,7 +613,6 @@ const AntifraudManager = (() => {
     // Audio bizim ana anahtarımız (Cross-browser için en stabil olan)
     
     // Senaryo A: Donanım kalemlerinden en kararlı olan 3'ünün (Audio, WebGL, Font) eşleşmesi.
-    // CanvasHash'i buraya koymuyoruz çünkü gizli sekme gibi modlarda sapma yapabiliyor.
     const hardwareQuery = await db.collection("votes")
       .where("audioHash", "==", hashes.audioHash || "none")
       .where("webglHash", "==", hashes.webglHash || "none")
@@ -611,13 +621,16 @@ const AntifraudManager = (() => {
       .get();
     
     if (!hardwareQuery.empty) {
-      // Bulunan sonuçlar arasında CanvasHash kontrolü de yapalım (en az 1'i tutmalı)
       for (const doc of hardwareQuery.docs) {
         const v = doc.data();
-        if (v.canvasHash === hashes.canvasHash) return { id: doc.id, ...v };
+        let matchCount = (v.ipHash === ipHash) ? 1 : 0;
+        matchCount += 3; // Audio, WebGL, Font zaten eşleşti
+        if (v.canvasHash === hashes.canvasHash) matchCount++;
+
+        if (matchCount >= 3) {
+           return { id: doc.id, ...v, _matchCount: matchCount };
+        }
       }
-      // Eğer hiçbiri canvas ile tam tutmadıysa ilkini (donanım bazlı en yakın) döndürelim
-      return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
     }
 
     // Senaryo B: IP aynı ve Donanimlarin çoğu aynı
@@ -636,9 +649,8 @@ const AntifraudManager = (() => {
       if (v.fontHash === hashes.fontHash) matchCount++;
       if (v.canvasHash === hashes.canvasHash) matchCount++;
 
-      // 5 sinyalden (IP+4 Donanim) en az 4'ü tutmalı
-      if (matchCount >= 4) {
-        candidates.push({ id: doc.id, ...v });
+      if (matchCount >= 3) {
+        candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
       }
     }
 
@@ -783,8 +795,13 @@ const AntifraudManager = (() => {
     
     if (matchedData) {
       markAsVotedLocally();
-      // Gizli sekme vb. durumlarda geri donen data ile sayfada karti gosterebiliriz
-      return { status: "device_block", data: matchedData }; 
+      // VERİ GERİ ÇEKME (Recovery): Sadece 4/5 ve üzeri eşleşmelerde veriyi döndür
+      if (matchedData._matchCount >= 4) {
+        return { status: "device_block", data: matchedData };
+      } else {
+        // 3/5 eşleşme: Blokla ama veriyi (oy pusulasını) geri verme
+        return { status: "device_block", data: null };
+      }
     }
 
     return false;
@@ -862,6 +879,12 @@ const AntifraudManager = (() => {
 
       // 2. Güvenlik sinyallerini topla
       const trustData = await checkSuspicionStatus();
+      
+      // Eğer trust score "low" gelirse ama matchedData'da yakalanmadiysa (limitler yüzünden), yine de engelle
+      if (trustData.trustScore === "low") {
+        throw new Error("Guvenlik denetimi basarisiz. Bu cihazdan artik oy kullanilamaz.");
+      }
+
       const visitorId = await getVisitorId();
       const cleanedSelections = sanitizeSelections(selections);
 
