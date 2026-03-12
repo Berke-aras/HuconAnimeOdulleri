@@ -51,15 +51,130 @@ const AntifraudManager = (() => {
 
   async function getVisitorId() {
     try {
+      let baseFp = "";
       if (typeof FingerprintJS !== "undefined") {
         const fp = await FingerprintJS.load();
         const result = await fp.get();
-        return result.visitorId;
+        baseFp = result.visitorId;
+      } else {
+        baseFp = await generateFallbackFingerprint();
       }
-      throw new Error("FingerprintJS not available");
+      
+      // Ileri Donanim Fingerprintlerini de bekle ve birlestir
+      const advancedWebGL = await getAdvancedWebGLFingerprint();
+      const audioFP = await getAudioContextFingerprint();
+      
+      // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
+      const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP;
+      return await sha256(combinedRaw);
     } catch (e) {
       return await generateFallbackFingerprint();
     }
+  }
+
+  // --- Ileri Seviye Donanim Parmak Izleri ---
+
+  async function getAdvancedWebGLFingerprint() {
+    return new Promise((resolve) => {
+      try {
+        const canvas = document.createElement("canvas");
+        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        if (!gl) return resolve("no-webgl");
+
+        // Basit Vertex Shader
+        const vShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vShader, `attribute vec2 p;void main(){gl_Position=vec4(p,0,1);}`);
+        gl.compileShader(vShader);
+
+        // Geometri ve matematiksel karmasiklik iceren Fragment Shader
+        const fShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fShader, `precision mediump float;void main(){gl_FragColor=vec4(fract(sin(gl_FragCoord.x*12.9898+gl_FragCoord.y*78.233)*43758.5453),fract(cos(gl_FragCoord.x*4.898+gl_FragCoord.y*7.23)*23421.631),0.5,1.0);}`);
+        gl.compileShader(fShader);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vShader);
+        gl.attachShader(program, fShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        // Cizim alani tanimla
+        const vertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+        const vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        const locMap = gl.getAttribLocation(program, "p");
+        gl.enableVertexAttribArray(locMap);
+        gl.vertexAttribPointer(locMap, 2, gl.FLOAT, false, 0, 0);
+
+        // Ekran boyutu ve renk islemesi
+        gl.viewport(0, 0, 8, 8);
+        gl.clearColor(0.2, 0.4, 0.6, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        // Pikselleri oku (GPU'muzun pikselleri nasil yuvarladigi cok ozel bir imzadir)
+        const pixels = new Uint8Array(8 * 8 * 4);
+        gl.readPixels(0, 0, 8, 8, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+        // Pikselleri temizle
+        let hash = 0;
+        for (let i = 0; i < pixels.length; i++) {
+          hash = ((hash << 5) - hash) + pixels[i];
+          hash = hash & hash; 
+        }
+
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : "unknown";
+        const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "unknown";
+
+        resolve(hash.toString(16) + "~" + vendor + "~" + renderer);
+      } catch (e) {
+        resolve("webgl-err");
+      }
+    });
+  }
+
+  async function getAudioContextFingerprint() {
+    return new Promise((resolve) => {
+      try {
+        const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!AudioContext) return resolve("no-audio");
+
+        // 44100Hz'de 1 saniyelik buffer
+        const context = new AudioContext(1, 44100, 44100);
+        
+        // Oscillator ve Compressor olustur
+        const oscillator = context.createOscillator();
+        oscillator.type = "triangle";
+        oscillator.frequency.value = 10000;
+
+        const compressor = context.createDynamicsCompressor();
+        compressor.threshold.value = -50;
+        compressor.knee.value = 40;
+        compressor.ratio.value = 12;
+        compressor.reduction.value = -20;
+        compressor.attack.value = 0;
+        compressor.release.value = 0.25;
+
+        // Bagla ve calistir
+        oscillator.connect(compressor);
+        compressor.connect(context.destination);
+        oscillator.start(0);
+
+        context.oncomplete = (event) => {
+          const buffer = event.renderedBuffer.getChannelData(0);
+          let hash = 0;
+          for (let i = 4500; i < 5000; i++) {
+            hash += Math.abs(buffer[i]);
+          }
+          resolve(hash.toString());
+        };
+
+        context.startRendering();
+      } catch (e) {
+        resolve("audio-err");
+      }
+    });
   }
 
   function getWebGLFingerprint() {
