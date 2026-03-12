@@ -28,6 +28,7 @@ const AntifraudManager = (() => {
   async function generateFallbackFingerprint() {
     const webgl = getWebGLFingerprint();
     const canvasFP = getCanvasFingerprint();
+    const fontFP = getFontFingerprint();
 
     const components = [
       navigator.userAgent,
