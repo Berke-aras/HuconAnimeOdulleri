@@ -25,22 +25,14 @@ const AntifraudManager = (() => {
   }
 
   function getClockDrift() {
-    let lastDrift = null;
-    for (let i = 0; i < 3; i++) {
-      try {
-        const t1 = performance.now();
-        const d1 = Date.now();
-        if (typeof t1 === 'number' && typeof d1 === 'number' && !isNaN(t1) && !isNaN(d1)) {
-          const drift = (d1 - t1).toFixed(3);
-          if (drift !== "0.000") {
-            lastDrift = drift;
-            break;
-          }
-        }
-      } catch (e) {}
+    try {
+      // performance.timeOrigin tarayicinin baslatildigi anin en kesin (mikrosaniye) timestampidir.
+      // Eger yoksa Date.now() - performance.now() ile simüle ediyoruz.
+      const origin = performance.timeOrigin || (Date.now() - performance.now());
+      return Number(origin).toFixed(4); // 4 basamakli kesinlik
+    } catch (e) {
+      return (Date.now() - (performance.now() || 0)).toFixed(4);
     }
-    if (!lastDrift) throw new Error("Cihaz zamanlamasina ulasilamadi (Clock Drift). Lutfen sayfayi yenileyin.");
-    return lastDrift;
   }
 
   async function getIPHash() {
@@ -436,13 +428,14 @@ const AntifraudManager = (() => {
   async function generateHardwareHashes() {
     const audioRaw = await getAudioContextFingerprint();
     const fontRaw = getFontFingerprint();
+    const voicesRaw = await getSpeechVoicesFingerprint();
     const webglHardware = getWebGLFingerprint();
     const webglAdvanced = await getAdvancedWebGLFingerprint();
     const canvasRaw = getCanvasFingerprint();
 
-    // Ses, font ve canvaslari hashliyoruz
     const audioHash = await sha256(audioRaw);
     const fontHash = await sha256(fontRaw);
+    const voicesHash = await sha256(voicesRaw);
     const canvasHash = await sha256(canvasRaw);
     
     // WebGL icin hem ham donanim bilgisini hem de shader hesaplama sonucunu kullaniyoruz
@@ -458,13 +451,13 @@ const AntifraudManager = (() => {
       Math.round(Math.max(screen.width, screen.height) / 100) * 100 + "x" + Math.round(Math.min(screen.width, screen.height) / 100) * 100
     ].join("|"));
 
-    return { audioHash, fontHash, webglHash, canvasHash, hardwareProfile };
+    return { audioHash, fontHash, voicesHash, webglHash, canvasHash, hardwareProfile };
   }
 
   async function generateHardwareSignature() {
     const hh = await generateHardwareHashes();
-    // Tum donanim kalemlerini kullanarak imza üret (Geriye donuk uyumluluk ve tam kapsama icin)
-    return await sha256([hh.audioHash, hh.fontHash, hh.webglHash, hh.canvasHash, hh.hardwareProfile].join("|"));
+    // 6 kalemden imza üret
+    return await sha256([hh.audioHash, hh.fontHash, hh.voicesHash, hh.webglHash, hh.canvasHash, hh.hardwareProfile].join("|"));
   }
 
   async function generateDeviceFingerprint() {
@@ -638,7 +631,9 @@ const AntifraudManager = (() => {
         let matchCount = (v.ipHash === ipHash) ? 1 : 0;
         matchCount += 3; // Audio, WebGL, Font zaten eşleşti
         if (v.canvasHash === hashes.canvasHash) matchCount++;
+        if (v.voicesHash === hashes.voicesHash) matchCount++;
 
+        // 6 sinyalden (IP+5 Donanim) 3 tanesi tutuyorsa (50%) blokla
         if (matchCount >= 3) {
            return { id: doc.id, ...v, _matchCount: matchCount };
         }
@@ -660,6 +655,7 @@ const AntifraudManager = (() => {
       if (v.webglHash === hashes.webglHash) matchCount++;
       if (v.fontHash === hashes.fontHash) matchCount++;
       if (v.canvasHash === hashes.canvasHash) matchCount++;
+      if (v.voicesHash === hashes.voicesHash) matchCount++;
 
       if (matchCount >= 3) {
         candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
@@ -714,6 +710,7 @@ const AntifraudManager = (() => {
         webglHash: hardwareHashes.webglHash,
         fontHash: hardwareHashes.fontHash,
         canvasHash: hardwareHashes.canvasHash,
+        voicesHash: hardwareHashes.voicesHash,
         clockDrift: clockDrift,
         ipHash: ipHash,
         deviceData: deviceData,
@@ -807,12 +804,11 @@ const AntifraudManager = (() => {
     
     if (matchedData) {
       markAsVotedLocally();
-      // VERİ GERİ ÇEKME (Recovery): Sadece 4/5 ve üzeri eşleşmelerde veriyi döndür
-      if (matchedData._matchCount >= 4) {
+      // VERİ GERİ ÇEKME (Recovery): 
+      // Safari gizli sekme sinyallerin çoğunu bozduğu için (Audio, Canvas, Screen) 
+      // 3/5 baraji hem blok hem de veri kurtarma için en ideal seviyedir.
+      if (matchedData._matchCount >= 3) {
         return { status: "device_block", data: matchedData };
-      } else {
-        // 3/5 eşleşme: Blokla ama veriyi (oy pusulasını) geri verme
-        return { status: "device_block", data: null };
       }
     }
 
