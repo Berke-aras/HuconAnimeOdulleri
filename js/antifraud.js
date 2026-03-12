@@ -590,6 +590,11 @@ const AntifraudManager = (() => {
     if (!hardwareQuery.empty) return { id: hardwareQuery.docs[0].id, ...hardwareQuery.docs[0].data() };
 
     // Senaryo B: IP aynı ve Audio + (WebGL veya Font) aynı
+    const ipQuery = await db.collection("votes")
+      .where("ipHash", "==", ipHash)
+      .limit(10)
+      .get();
+      
     const candidates = [];
 
     for (const doc of ipQuery.docs) {
