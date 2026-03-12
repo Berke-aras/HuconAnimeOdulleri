@@ -24,17 +24,22 @@ const AntifraudManager = (() => {
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
-  // Cihazın sistem saati ile yüksek performanslı sayaç arasındaki sapma.
-  // Bu değer her cihazda minik farklar gösterir (Clock Drift).
   function getClockDrift() {
-    try {
-      const t1 = performance.now();
-      const d1 = Date.now();
-      // Milisaniye bazında minik bir sapma yakalamaya çalışıyoruz
-      return (d1 - t1).toFixed(3);
-    } catch (e) {
-      return "0";
+    let lastDrift = null;
+    // Tek bir ölçüm yerine birkaç mikrosaniyelik farkla ölçüp doğruluğu artıralım
+    for (let i = 0; i < 3; i++) {
+      try {
+        const t1 = performance.now();
+        const d1 = Date.now();
+        const drift = (d1 - t1).toFixed(3);
+        if (drift !== "0.000") {
+          lastDrift = drift;
+          break;
+        }
+      } catch (e) {}
     }
+    if (!lastDrift) throw new Error("Cihaz zamanlamasina ulasilamadi. Lutfen sayfayi yenileyin.");
+    return lastDrift;
   }
 
   async function getIPHash() {
@@ -97,27 +102,23 @@ const AntifraudManager = (() => {
       baseFp = await generateFallbackFingerprint();
     }
 
-    try {
-      // Ileri Donanim Fingerprintlerini her halukarda bekle ve birlestir (Paralel olarak daha hizli yuklenir)
-      const [advancedWebGL, audioFP, speechFP] = await Promise.all([
-        getAdvancedWebGLFingerprint(),
-        getAudioContextFingerprint(),
-        getSpeechVoicesFingerprint()
-      ]);
+    // Ileri Donanim Fingerprintlerini her halukarda bekle ve birlestir
+    const [advancedWebGL, audioFP, speechFP] = await Promise.all([
+      getAdvancedWebGLFingerprint(),
+      getAudioContextFingerprint(),
+      getSpeechVoicesFingerprint()
+    ]);
 
-      // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
-      const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP + "|" + speechFP;
-      return await sha256(combinedRaw);
-    } catch (err) {
-      return await sha256(baseFp); // En kotu senaryoda sadece baseFp'yi hashle
-    }
+    // Bunlari birlestirip yepyeni ve cok daha benzersiz bir hash uret
+    const combinedRaw = baseFp + "|" + advancedWebGL + "|" + audioFP + "|" + speechFP;
+    return await sha256(combinedRaw);
   }
 
   // --- Ileri Seviye Donanim Parmak Izleri ---
 
   async function getAdvancedWebGLFingerprint() {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve("webgl-timeout"), 1000);
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("WebGL dogrulamasi zaman asimina ugradi.")), 3000);
       try {
         const canvas = document.createElement("canvas");
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -222,9 +223,9 @@ const AntifraudManager = (() => {
   }
 
   async function getAudioContextFingerprint() {
-    return new Promise((resolve) => {
-      // Yavas mobil cihazlari da goz onunde bulundurarak 1000ms timeout
-      const timeout = setTimeout(() => resolve("audio-timeout"), 1000);
+    return new Promise((resolve, reject) => {
+      // Yavas mobil cihazlari da goz onunde bulundurarak 3000ms timeout
+      const timeout = setTimeout(() => reject(new Error("Ses dogrulamasi zaman asimina ugradi.")), 3000);
 
       try {
         const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -257,16 +258,16 @@ const AntifraudManager = (() => {
           clearTimeout(timeout);
           try {
             const buffer = event.renderedBuffer.getChannelData(0);
-            // Daha genis aralik ve daha kararlı hash (Sadece tam sayıları kullan)
+            // Daha genis aralik ve daha kararlı hash (Sadece tam sayilari kullan)
             let hash = 5381;
             for (let i = 4000; i < 6000; i += 2) {
-              const val = Math.floor(Math.abs(buffer[i]) * 10000);
+              const val = Math.floor(Math.abs(buffer[i] || 0) * 10000);
               hash = ((hash << 5) + hash) + val;
-              hash = hash & 0x7fffffff;
             }
+            hash = hash & 0x7fffffff;
             resolve(hash.toString(36));
           } catch (err) {
-            resolve("audio-err");
+            reject(new Error("Ses imzasi olusturulamadi."));
           }
         };
 
@@ -413,10 +414,12 @@ const AntifraudManager = (() => {
     const fontRaw = getFontFingerprint();
     const webglHardware = getWebGLFingerprint();
     const webglAdvanced = await getAdvancedWebGLFingerprint();
+    const canvasRaw = getCanvasFingerprint();
 
-    // Ses ve fontlari hashliyoruz
+    // Ses, font ve canvaslari hashliyoruz
     const audioHash = await sha256(audioRaw);
     const fontHash = await sha256(fontRaw);
+    const canvasHash = await sha256(canvasRaw);
     
     // WebGL icin hem ham donanim bilgisini hem de shader hesaplama sonucunu kullaniyoruz
     const webglHash = await sha256(webglHardware + "|||" + webglAdvanced);
@@ -431,7 +434,7 @@ const AntifraudManager = (() => {
       Math.round(Math.max(screen.width, screen.height) / 100) * 100 + "x" + Math.round(Math.min(screen.width, screen.height) / 100) * 100
     ].join("|"));
 
-    return { audioHash, fontHash, webglHash, hardwareProfile };
+    return { audioHash, fontHash, webglHash, canvasHash, hardwareProfile };
   }
 
   async function generateHardwareSignature() {
@@ -582,10 +585,12 @@ const AntifraudManager = (() => {
   }
 
   async function findMatchedVoteData(deviceId, ipHash, hashes) {
-    // 1. Kesin DeviceId eslesmesi (Ayni tarayici)
+    if (!hashes.audioHash || !hashes.webglHash || !hashes.fontHash) return null;
+
+    // 1. Kesin DeviceId esleşmesi (Aynı tarayıcı)
     const exactQuery = await db.collection("votes")
-      .where("deviceId", "==", deviceId)
-      .where("ipHash", "==", ipHash)
+      .where("deviceId", "==", deviceId || "none")
+      .where("ipHash", "==", ipHash || "none")
       .limit(1)
       .get();
     
@@ -629,10 +634,10 @@ const AntifraudManager = (() => {
     if (candidates.length === 1) return candidates[0];
 
     // Birden fazla aday varsa TIE-BREAKER (Hakem) uygula
-    const targetDrift = parseFloat(getClockDrift());
+    const targetDrift = parseFloat(getClockDrift()) || 0;
     return candidates.sort((a, b) => {
-      const driftA = Math.abs(parseFloat(a.clockDrift || 0) - targetDrift);
-      const driftB = Math.abs(parseFloat(b.clockDrift || 0) - targetDrift);
+      const driftA = Math.abs((parseFloat(a.clockDrift) || 0) - targetDrift);
+      const driftB = Math.abs((parseFloat(b.clockDrift) || 0) - targetDrift);
       return driftA - driftB; // En küçük saat sapması olan kazanır
     })[0];
   }
@@ -777,8 +782,10 @@ const AntifraudManager = (() => {
     const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
 
+    if (!hardwareHashes.audioHash || !hardwareHashes.canvasHash) return { trustScore: "high", suspicionReason: null };
+
     // IP + Donanim sinyallerini kontrol et
-    const ipQuery = await db.collection("votes").where("ipHash", "==", ipHash).limit(10).get();
+    const ipQuery = await db.collection("votes").where("ipHash", "==", ipHash || "none").limit(10).get();
     
     let maxMatch = 0;
     for(const doc of ipQuery.docs) {
