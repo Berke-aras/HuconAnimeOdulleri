@@ -965,8 +965,9 @@ const AntifraudManager = (() => {
       // 2. Güvenlik sinyallerini topla
       const trustData = await checkSuspicionStatus();
       
-      // Eğer trust score "low" gelirse ama matchedData'da yakalanmadiysa (limitler yüzünden), yine de engelle
-      if (trustData.trustScore === "low") {
+      // Eğer trust score "low" gelirse (donanım eşleşmesi), normalde bloke ederiz.
+      // ANCAK: Revote modundaysak kendi eski oyumuzla eşleşeceğimiz için bu bloğu atlıyoruz.
+      if (trustData.trustScore === "low" && !isRevoteMode()) {
         throw new Error("Guvenlik denetimi basarisiz. Bu cihazdan artik oy kullanilamaz.");
       }
 
