@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,47 +16,132 @@
       border: 1px solid var(--border-color);
       line-height: 1.6;
     }
-    .legal-content h1 { margin-bottom: 24px; color: var(--text-primary); }
-    .legal-content h2 { margin-top: 32px; margin-bottom: 16px; color: var(--accent-secondary); font-size: 1.25rem; }
-    .legal-content p { margin-bottom: 16px; color: var(--text-secondary); }
-    .legal-content ul { margin-bottom: 16px; padding-left: 20px; color: var(--text-secondary); }
-    .legal-content li { margin-bottom: 8px; }
-    .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-orange); text-decoration: none; margin-bottom: 24px; font-weight: 500; }
+
+    .legal-content h1 {
+      margin-bottom: 24px;
+      color: var(--text-primary);
+      font-size: 1.75rem;
+    }
+
+    .legal-content h2 {
+      margin-top: 32px;
+      margin-bottom: 16px;
+      color: var(--accent-secondary);
+      font-size: 1.25rem;
+      border-left: 4px solid var(--accent-orange);
+      padding-left: 12px;
+    }
+
+    .legal-content p {
+      margin-bottom: 16px;
+      color: var(--text-secondary);
+    }
+
+    .legal-content ul {
+      margin-bottom: 16px;
+      padding-left: 20px;
+      color: var(--text-secondary);
+    }
+
+    .legal-content li {
+      margin-bottom: 8px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent-orange);
+      text-decoration: none;
+      margin-bottom: 24px;
+      font-weight: 500;
+    }
   </style>
 </head>
+
 <body>
   <div class="legal-content">
     <a href="javascript:history.back()" class="back-link">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 19-7-7 7-7" />
+        <path d="M19 12H5" />
+      </svg>
       Geri Dön
     </a>
-    
+
     <h1>KVKK ve Aydınlatma Metni</h1>
-    
-    <p>Anime Oylama 2026 olarak, kişisel verilerinizin güvenliği ve şeffaflık bizim için önceliklidir. Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) ve Avrupa Genel Veri Koruma Yönetmeliği (GDPR) uyarınca hazırlanmıştır.</p>
 
-    <h2>1. İşlenen Veriler ve Amaç</h2>
-    <p>Oylama sistemimizin adil ve güvenilir kalması amacıyla aşağıdaki teknik veriler işlenmektedir:</p>
+    <p><strong>Veri Sorumlusu:</strong> Hacettepe Anime Manga Topluluğu</p>
+    <p><strong>Adres:</strong> Hacettepe Beytepe Kampüsü Ankara / Türkiye</p>
+    <p><strong>E-posta:</strong> hacettepeanimemanga@gmail.com</p>
+
+    <p>HUCON 2026 olarak, oylama sürecinin güvenli, adil ve denetlenebilir şekilde yürütülmesi amacıyla bazı kişisel
+      verilerinizi işlemekteyiz. Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) kapsamında
+      hazırlanmıştır; Avrupa Birliği/Avrupa Ekonomik Alanı’nda bulunan kullanıcılara ilişkin veri işleme faaliyetleri
+      bakımından gerekli olduğu ölçüde GDPR hükümleri de dikkate alınmaktadır.</p>
+
+    <h2>1. İşlenen Kişisel Veriler</h2>
+    <p>Oylama güvenliğini sağlamak, mükerrer veya otomatik oy kullanımını azaltmak, sistem hatalarını gidermek ve temel
+      istatistikleri üretmek amacıyla aşağıdaki veri kategorileri işlenebilir:</p>
     <ul>
-      <li><strong>İnternet IP Özeti:</strong> İnternete çıktığınız ağ cihazını tanımak için kullanılır. Aynı ağdan binlerce bot oyunu engellemeye yarar.</li>
-      <li><strong>Yerel IP Özeti (WebRTC):</strong> Aynı Wi-Fi ağındaki (ev, ofis veya okul) farklı cihazlar arasındaki ayrımı yapmak için kullanılır. Böylece kardeşiniz veya iş arkadaşınız kendi cihazından oy verebilirken, sizin cihazınız kısıtlanır.</li>
-      <li><strong>Donanım ve Grafik İmzası (Audio/GPU/Canvas):</strong> Cihazınızın iç bileşenlerini (ses kartı, ekran kartı) tanır. Bu sayede tarayıcınızı gizli sekmeye alsanız veya önbelleği temizleseniz dahi cihazın fiziksel kimliği değişmediği için sistem sizi tanıyabilir.</li>
-      <li><strong>Sistem Profili (Fonts/Voices):</strong> Cihazınızdaki yüklü yazılımsal özellikleri tanır. Bu, donanım imzasına ek bir doğrulama katmanı sağlayarak yanlış eşleşmeleri (false-positives) engellemeye yarar.</li>
-      <li><strong>Saat Sapması (Clock Drift):</strong> İşlemcinizin mikrosaniye seviyesindeki eşsiz çalışma temposunu ölçer. Bu sinyal, tamamen aynı iki model telefon (örn: iki adet iPhone 15) arasındaki mikroskobik kristal farkını tespit ederek onları birbirinden ayırmak için "nihai hakem" görevi görür.</li>
-      <li><strong>Kullanım Verisi:</strong> Oylama işleminin hangi zaman diliminde yapıldığını ve hangi adaylara ilgi gösterildiğini istatistiksel olarak anonimleştirerek kaydeder.</li>
+      <li><strong>Ağ ve Bağlantı Verileri:</strong> IP adresi veya IP adresinden türetilen kriptografik özetler (SHA-256
+        Hash), WebRTC teknolojisi aracılığıyla elde edilebilen yerel ağ özetleri.</li>
+      <li><strong>Teknik Cihaz Sinyalleri (Fingerprinting):</strong> Tarayıcı ve cihaz özellikleri, ekran/grafik
+        (WebGL/Canvas) çıktı karakteristikleri, donanımsal ses işleme imzaları, sistem font ve ses sentez (Voices)
+        listeleri.</li>
+      <li><strong>Zamanlama Verileri:</strong> İşlemci tabanlı zamanlama sinyalleri (Clock Drift) ve oylama zamanı.</li>
+      <li><strong>Tanımlayıcılar:</strong> Çerezler (Cookies), Local Storage ve benzeri istemci tarafı teknik
+        tanımlayıcılar.</li>
+      <li><strong>Oylama Verisi:</strong> Seçilen kategori ve aday bilgileri ile güvenlik logları.</li>
     </ul>
-    <p>Bu veriler <strong>sadece oylama mükerrerliğini (hileli oyları) teknik olarak engellemek, oy verilerinizi güvenle kurtarmanızı sağlamak</strong> ve oylama istatistiklerini oluşturmak amacıyla işlenir.</p>
 
-    <h2>2. Veri Saklama ve Güvenlik</h2>
-    <p>Verileriniz Google Cloud Firestore altyapısında, endüstri standardı şifreleme yöntemleriyle saklanmaktadır. IP adresiniz gibi hassas veriler asla "açık yazı" (plain text) olarak kaydedilmez; sadece geri döndürülemez bir özeti (SHA-256 Hash) tutulur.</p>
+    <h2>2. Kişisel Verilerin İşlenme Amaçları</h2>
+    <p>Kişisel verileriniz şu amaçlarla işlenmektedir:</p>
+    <ul>
+      <li>Aynı kişi/cihaz/ağ tarafından yapılan mükerrer veya hileli oy girişimlerinin tespiti ve önlenmesi.</li>
+      <li>Oylama oturumunun sürdürülmesi, teknik hata ve suistimal incelemelerinin yapılması.</li>
+      <li>Oyun/oylamanın bütünlüğünün korunması ve gerektiğinde inceleme süreçlerinin yürütülmesi.</li>
+      <li>Veri kaybı durumunda oyların (kartların) güvenli şekilde geri getirilmesi/eşleştirilmesi.</li>
+      <li>Toplulaştırılmış, istatistiksel raporların oluşturulması.</li>
+    </ul>
 
-    <h2>3. Çerezler (Cookies)</h2>
-    <p>Sitemiz, oylama oturumunuzu yönetmek ve mükerrer oy kullanımını teknik olarak engellemek adına gerekli (essential) çerezler kullanmaktadır. Bu çerezler reklam amaçlı veya pazarlama odaklı veriler içermez.</p>
+    <h2>3. Kişisel Verilerin Toplanma Yöntemi ve Hukuki Sebebi</h2>
+    <p>Verileriniz; internet sitesi, sunucu logları, çerezler, tarayıcı API’leri ve WebRTC teknolojileri aracılığıyla
+      otomatik yollarla toplanmaktadır. İşleme faaliyeti, KVKK m.5 kapsamında "Bir hakkın tesisi, kullanılması veya
+      korunması için veri işlemenin zorunlu olması" veya "Veri sorumlusunun meşru menfaati" hukuki sebeplerine
+      dayanmaktadır. Güvenlik için strictly necessary (kesinlikle gerekli) olmayan takip teknolojileri için açık rıza
+      yöntemine başvurulabilir.</p>
 
-    <h2>4. Haklarınız</h2>
-    <p>KVKK uyarınca, verilerinizin işlenip işlenmediğini öğrenme, verileriniz işlenmişse bilgi talep etme ve hatalı verilerin düzeltilmesini isteme hakkına sahipsiniz. Oylama süreci bittiğinde, anti-fraud amaçlı tutulan teknik veriler sistemden temizlenecektir.</p>
+    <h2>4. Kişisel Verilerin Aktarılması</h2>
+    <p>Kişisel verileriniz, yukarıdaki amaçlarla sınırlı olmak üzere:</p>
+    <ul>
+      <li>Barındırma ve veritabanı hizmeti sunan altyapı sağlayıcımıza (Google Cloud / Firebase / Firestore - Bölge:
+        Belçika/europe-west1),</li>
+      <li>Hukuken yetkili kamu kurum ve kuruluşlarına (talep halinde),</li>
+      <li>Güvenlik denetimi veya hukuk danışmanlığı hizmeti alınan üçüncü kişilere</li>
+    </ul>
+    <p>aktarılabilir. Google Cloud hizmetleri bağlamında yapılan yurt dışı aktarımlarında ilgili teknik ve hukuki
+      güvenceler (SCC/CDPA) dikkate alınmaktadır.</p>
 
-    <p style="margin-top: 40px; font-size: 0.9rem; opacity: 0.7;">Son Güncelleme: 12 Mart 2026</p>
+    <h2>5. Veri Saklama Süresi</h2>
+    <p>Anti-fraud ve güvenlik amaçlı teknik veriler, oylama sürecinin ve itiraz/inceleme döneminin sona ermesini takiben
+      en geç <strong>90 gün</strong> içinde silinir, yok edilir veya anonim hale getirilir. Oylama sonuçları
+      istatistiksel amaçla anonim olarak saklanmaya devam edebilir.</p>
+
+    <h2>6. Otomatik Değerlendirme / Anti-Fraud Kontrolleri</h2>
+    <p>Oylama güvenliğini sağlamak amacıyla teknik veriler otomatik olarak analiz edilerek bir güvenlik değerlendirmesi
+      üretilebilir. Bu analiz sonucunda aynı cihaz veya ağdan geldiği kuvvetle muhtemel görülen oylar
+      sınırlandırılabilir veya incelemeye alınabilir. Bu işlemler yalnızca oylama adaletini sağlamak amacıyla yürütülür.
+    </p>
+
+    <h2>7. Haklarınız ve Başvuru</h2>
+    <p>KVKK m.11 kapsamında; verilerinizin işlenip işlenmediğini öğrenme, düzeltilmesini, silinmesini veya yok
+      edilmesini isteme hakkına sahipsiniz. Taleplerinizi yukarıda belirtilen e-posta adresi üzerinden
+      tarafımıza iletebilirsiniz. Başvurularınız en geç otuz gün içinde sonuçlandırılacaktır.</p>
+
+    <p style="margin-top: 40px; font-size: 0.9rem; opacity: 0.7;">Son Güncelleme: 13 Mart 2026</p>
   </div>
 </body>
+
 </html>
