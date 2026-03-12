@@ -319,6 +319,34 @@ const AntifraudManager = (() => {
     });
   }
 
+  function getWebRTCIP() {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve("webrtc-timeout"), 800);
+      try {
+        const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+        if (!RTCPeerConnection) return resolve("no-webrtc");
+        
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel("");
+        pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
+        
+        pc.onicecandidate = (ice) => {
+          if (!ice || !ice.candidate || !ice.candidate.candidate) return;
+          const candidate = ice.candidate.candidate;
+          const match = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/.exec(candidate);
+          if (match) {
+            clearTimeout(timeout);
+            pc.close();
+            resolve(match[1]);
+          }
+        };
+      } catch (e) {
+        clearTimeout(timeout);
+        resolve("webrtc-err");
+      }
+    });
+  }
+
   // Font kullanilabilirlik testi - her cihazda farkli fontlar yuklu
   function getFontFingerprint() {
     try {
@@ -429,6 +457,7 @@ const AntifraudManager = (() => {
     const audioRaw = await getAudioContextFingerprint();
     const fontRaw = getFontFingerprint();
     const voicesRaw = await getSpeechVoicesFingerprint();
+    const webrtcRaw = await getWebRTCIP();
     const webglHardware = getWebGLFingerprint();
     const webglAdvanced = await getAdvancedWebGLFingerprint();
     const canvasRaw = getCanvasFingerprint();
@@ -436,6 +465,7 @@ const AntifraudManager = (() => {
     const audioHash = await sha256(audioRaw);
     const fontHash = await sha256(fontRaw);
     const voicesHash = await sha256(voicesRaw);
+    const localIpHash = await sha256(webrtcRaw);
     const canvasHash = await sha256(canvasRaw);
     
     // WebGL icin hem ham donanim bilgisini hem de shader hesaplama sonucunu kullaniyoruz
@@ -456,8 +486,8 @@ const AntifraudManager = (() => {
 
   async function generateHardwareSignature() {
     const hh = await generateHardwareHashes();
-    // 6 kalemden imza üret
-    return await sha256([hh.audioHash, hh.fontHash, hh.voicesHash, hh.webglHash, hh.canvasHash, hh.hardwareProfile].join("|"));
+    // 7 kalemden imza üret (Local IP artik düşük ağırlıklı bir parça)
+    return await sha256([hh.audioHash, hh.fontHash, hh.voicesHash, hh.localIpHash, hh.webglHash, hh.canvasHash, hh.hardwareProfile].join("|"));
   }
 
   async function generateDeviceFingerprint() {
@@ -614,10 +644,10 @@ const AntifraudManager = (() => {
     
     if (!exactQuery.empty) return { id: exactQuery.docs[0].id, ...exactQuery.docs[0].data() };
 
-    // 2. 3/4 Eşleşme Mantığı (IP, Audio, WebGL, Font)
-    // Audio bizim ana anahtarımız (Cross-browser için en stabil olan)
-    
-    // Senaryo A: Donanım kalemlerinden en kararlı olan 3'ünün (Audio, WebGL, Font) eşleşmesi.
+    // --- Aday Havuzu (Potansiyel eslesmeleri toplayip en iyisini sececegiz) ---
+    let candidates = [];
+
+    // 2. Senaryo A: Donanım Kalemlerinden (Audio, WebGL, Font) sorgula
     const hardwareQuery = await db.collection("votes")
       .where("audioHash", "==", hashes.audioHash || "none")
       .where("webglHash", "==", hashes.webglHash || "none")
@@ -625,52 +655,86 @@ const AntifraudManager = (() => {
       .limit(10)
       .get();
     
-    if (!hardwareQuery.empty) {
-      for (const doc of hardwareQuery.docs) {
-        const v = doc.data();
-        let matchCount = (v.ipHash === ipHash) ? 1 : 0;
-        matchCount += 3; // Audio, WebGL, Font zaten eşleşti
-        if (v.canvasHash === hashes.canvasHash) matchCount++;
-        if (v.voicesHash === hashes.voicesHash) matchCount++;
+    hardwareQuery.docs.forEach(doc => {
+      const v = doc.data();
+      let matchCount = (v.ipHash === ipHash) ? 1 : 0;
+      matchCount += 3; // Audio, WebGL, Font zaten eslesti
+      if (v.canvasHash === hashes.canvasHash) matchCount++;
+      if (v.voicesHash === hashes.voicesHash) matchCount++;
+      if (v.localIpHash === hashes.localIpHash) matchCount++;
 
-        // 6 sinyalden (IP+5 Donanim) 3 tanesi tutuyorsa (50%) blokla
-        if (matchCount >= 3) {
-           return { id: doc.id, ...v, _matchCount: matchCount };
-        }
+      if (matchCount >= 3) {
+        candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
       }
-    }
+    });
 
-    // Senaryo B: IP aynı ve Donanimlarin çoğu aynı
+    // 3. Senaryo B: IP üzerinden sorgula (Donanimlar farkli olsa da IP ayni olabilir)
     const ipQuery = await db.collection("votes")
       .where("ipHash", "==", ipHash || "none")
       .limit(10)
       .get();
       
-    const candidates = [];
+    ipQuery.docs.forEach(doc => {
+      // Zaten donanim sorgusunda bulduysak tekrar ekleme (De-duplication)
+      if (candidates.some(c => c.id === doc.id)) return;
 
-    for (const doc of ipQuery.docs) {
       const v = doc.data();
-      let matchCount = 1; // IP eşleşiyor
+      let matchCount = 1; // IP eslesiyor
       if (v.audioHash === hashes.audioHash) matchCount++;
       if (v.webglHash === hashes.webglHash) matchCount++;
       if (v.fontHash === hashes.fontHash) matchCount++;
       if (v.canvasHash === hashes.canvasHash) matchCount++;
       if (v.voicesHash === hashes.voicesHash) matchCount++;
+      if (v.localIpHash === hashes.localIpHash) matchCount++;
 
       if (matchCount >= 3) {
         candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
       }
-    }
+    });
 
-    if (candidates.length === 0) return null;
-    if (candidates.length === 1) return candidates[0];
-
-    // Birden fazla aday varsa TIE-BREAKER (Hakem) uygula
+    // --- EN IYI ADAYI SEC (Weighted Best Candidate Selection) ---
     const targetDrift = parseFloat(getClockDrift()) || 0;
+    
+    // Sinyal agirliklari (Cihazı ne kadar benzersiz kildigi)
+    const weights = {
+      ip: 1.0,      // Ağ kimliği
+      webgl: 1.5,   // En güçlü donanim sinyali (GPU)
+      canvas: 1.2,  // Hassas grafik imzasi
+      audio: 0.8,   // Sürücü bazli (Class ID)
+      localIp: 1.0, // İç ağ kimliği
+      voices: 0.5,  // Yazilim bazli
+      font: 0.5     // Yazilim bazli
+    };
+
     return candidates.sort((a, b) => {
-      const driftA = Math.abs((parseFloat(a.clockDrift) || 0) - targetDrift);
-      const driftB = Math.abs((parseFloat(b.clockDrift) || 0) - targetDrift);
-      return driftA - driftB; // En küçük saat sapması olan kazanır
+      // 1- Önce Ham Eşleşme Puanına (Match Count) bak
+      if (b._matchCount !== a._matchCount) {
+        return b._matchCount - a._matchCount;
+      }
+      
+      // 2- Puanlar eşitse "Ağırlıklı Skor" hesapla (Hangi sinyaller daha kaliteli?)
+      const getWeightedScore = (c) => {
+        let score = (c.ipHash === ipHash ? weights.ip : 0);
+        score += (c.webglHash === hashes.webglHash ? weights.webgl : 0);
+        score += (c.canvasHash === hashes.canvasHash ? weights.canvas : 0);
+        score += (c.audioHash === hashes.audioHash ? weights.audio : 0);
+        score += (c.localIpHash === hashes.localIpHash ? weights.localIp : 0);
+        score += (c.voicesHash === hashes.voicesHash ? weights.voices : 0);
+        score += (c.fontHash === hashes.fontHash ? weights.font : 0);
+        return score;
+      };
+
+      const scoreA = getWeightedScore(a);
+      const scoreB = getWeightedScore(b);
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+
+      // 3- Her şey eşitse Saat Sapması (Drift) en yakın olana bak (Fotofiniş)
+      const driftDiffA = Math.abs((parseFloat(a.clockDrift) || 0) - targetDrift);
+      const driftDiffB = Math.abs((parseFloat(b.clockDrift) || 0) - targetDrift);
+      return driftDiffA - driftDiffB;
     })[0];
   }
 
@@ -711,6 +775,7 @@ const AntifraudManager = (() => {
         fontHash: hardwareHashes.fontHash,
         canvasHash: hardwareHashes.canvasHash,
         voicesHash: hardwareHashes.voicesHash,
+        localIpHash: hardwareHashes.localIpHash,
         clockDrift: clockDrift,
         ipHash: ipHash,
         deviceData: deviceData,
