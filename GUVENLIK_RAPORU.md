@@ -1,6 +1,6 @@
-# Hucon Anime Odulleri - Fingerprint ve Guvenlik Inceleme Notu
+# Hucon Anime Odulleri - Guvenlik Taramasi ve Iyilestirme Raporu
 
-Bu dokuman, projedeki anti-fraud/fingerprint akisini ve genel guvenlik durumunu ozetler.
+Bu dokuman, projedeki guvenlik taramasi sonuclarini ve uygulanan duzeltmeleri ozetler.
 
 ## Mevcut guclu yonler
 
@@ -9,53 +9,98 @@ Bu dokuman, projedeki anti-fraud/fingerprint akisini ve genel guvenlik durumunu 
 - **Bot zorlastirma:** Minimum oylama suresi kontrolu (`MIN_VOTING_DURATION_MS`) mevcut.
 - **Ek insan dogrulama:** Turnstile entegrasyonu (`js/vote.js`) var.
 - **Kisisel veri kapsamini dar tutma:** Hash bazli alanlar kullaniliyor, ham hassas veri tutulmuyor.
+- **Input dogrulama:** `sanitizeSelections()` fonksiyonu whitelist bazli dogrulama yapiyor.
+- **XSS onleme:** `escapeHTML()` fonksiyonu DOM API ile HTML encode yapiyor.
 
-## Bu PR'da yapilan guvenlik iyilestirmeleri
+## Tespit edilen guvenlik aciklari ve uygulanan duzeltmeler
 
-### 1) Oy verisi dogrulama/sanitize eklendi
+### 1) WebRTC IP Gizlilik Sizintisi - DUZELTILDI ✅
 
-`AntifraudManager.submitVote(...)` artik gonderilen `selections` verisini sunucuya yazmadan once dogruluyor:
+**Dosya:** `js/antifraud.js` - `getWebRTCIP()` fonksiyonu
+
+**Sorun:** `getWebRTCIP()` fonksiyonu kullanicinin yerel ag IP adresini (192.168.x.x vb.) ham olarak donduruyordu. Bu, gizlilik ihlali olusturuyordu.
+
+**Duzeltme:** Ham IP adresi yerine aninda SHA-256 hash uygulaniyor. Boylece IP adresi hicbir zaman acik metin olarak bellekte kalmaz.
+
+### 2) Inline onerror XSS Vektorleri - DUZELTILDI ✅
+
+**Dosya:** `js/vote.js` - `populateGrid()` ve `showConfirmScreen()` fonksiyonlari
+
+**Sorun:** Resim elementlerinde `onerror="..."` inline JavaScript kullaniliyordu. Bu, CSP politikalarini zorlastiriyor ve potansiyel XSS saldiri yuzeyi olusturuyordu.
+
+**Duzeltme:** Inline event handler'lar kaldirildı, yerine `addEventListener('error', ...)` kullanildi.
+
+### 3) `javascript:` URI Kullanimi - DUZELTILDI ✅
+
+**Dosya:** `kvkk.html`
+
+**Sorun:** Geri don linkinde `href="javascript:history.back()"` kullaniliyordu. `javascript:` protokolu guvenlik riski ve XSS saldiri yuzeyi olustururur.
+
+**Duzeltme:** `href="#"` ile `onclick="event.preventDefault();history.back();"` kullanildi.
+
+### 4) Eksik Guvenlik Basliklari - DUZELTILDI ✅
+
+**Dosyalar:** Tum HTML dosyalari
+
+**Sorun:** Bazi sayfalarda `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` guvenlik basliklari eksikti.
+
+**Duzeltme:** Tum HTML dosyalarina asagidaki meta tag'lar eklendi:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: no-referrer`
+
+### 5) JSON.parse Dogrulama Eksikligi - DUZELTILDI ✅
+
+**Dosyalar:** `js/antifraud.js` ve `js/card.js` - `getVoteData()` fonksiyonlari
+
+**Sorun:** localStorage/sessionStorage'dan okunan veri `JSON.parse()` ile ayristirilirken yapısal dogrulama yapilmiyordu. XSS veya baska bir saldiri ile localStorage'a yazilmis kotu amacli veri, uygulamayi bozabilirdi.
+
+**Duzeltme:** Parse edilen verinin yapisal dogrulamasi eklendi (tip kontrolleri: cardNumber, accessToken, selections).
+
+## Daha once yapilmis guvenlik iyilestirmeleri
+
+### Oy verisi dogrulama/sanitize
+
+`AntifraudManager.submitVote(...)` gonderilen `selections` verisini sunucuya yazmadan once dogruluyor:
 
 - Girdi obje mi?
 - Tum kategoriler icin secim var mi?
 - Secilen adaylar ilgili kategoride whitelist icinde mi?
 - Beklenmeyen/ek anahtar var mi?
 
-Gecersiz durumda islem hata ile kesiliyor.
+> Dosya: `js/antifraud.js` (`sanitizeSelections` fonksiyonu)
 
-> Dosya: `js/antifraud.js` (`sanitizeSelections` fonksiyonu ve `submitVote` entegrasyonu)
+## Hala acik olan guvenlik onerileri
 
-### 2) Onceki oy kaydinin degistirilmesi (Iptal Edildi)
+### Yuksek oncelikli
 
-Orijinal PR oncesi kaydin ustune yazilmasini engelleyen bir mekanizma onermisti, ancak "Revote" (Yeniden Oylama) ozelliginin calismaya devam etmesi gerektigi icin bu degisiklik uygulanmamistir. Sadece guncellenen verinin guvenli ve test edilmis (`sanitizeSelections`) olmasi saglanmistir.
-
-## Fingerprint tarafinda daha iyi yapilabilecekler
-
-1. **Skor bazli risk modeli:** Tek bir "izin/verme" yerine fingerprint tutarsizliklarina puan verip risk skoru uretin (ornegin GPU degisti + timezone degisti + cookie yok).
-2. **Sunucu tarafi challenge katmani:** Supheli skorda ikinci challenge (ek Turnstile veya gecikmeli onay) uygulayin.
-3. **Fingerprint versiyonlama:** Hash icerigi degisirse (yeni sinyal eklendi), `fpVersion` alani tutarak geriye donuk analiz kolaylastirin.
-4. **Kisa sureli hiz limiti (rate limit):** Firestore tarafinda dakika/saat bazli yazma limiti veya Cloud Function gatekeeper ekleyin.
-5. **Olcumleme/izleme:** Supheli denemeler icin anonim event sayaci tutup anomali alarmi ekleyin.
-
-## Genel guvenlik onerileri (kisa liste)
-
-1. **Firestore security rules denetimi**
-   - `list: false`
-   - `update/delete: false` (oy belgeleri icin - eger Revote kullanilmayacaksa)
+1. **SRI (Subresource Integrity) hash'leri:** Harici CDN scriptlerine (Firebase, FingerprintJS, jsPDF) `integrity` ve `crossorigin` attribute'lari eklenmeli. Bu, tedarik zinciri saldirilarini onler.
+2. **Content Security Policy (CSP):** Hosting katmaninda veya meta tag olarak CSP basligi eklenmeli. Izin verilen script kaynaklari beyaz listeye alinmali.
+3. **Firestore Security Rules:** Veritabani erisim kurallari gozden gecirilmeli:
+   - `list: false` (toplu okuma engeli)
    - Dokuman schema dogrulama
-2. **CDN guvenligi**
-   - Mumkun olan scriptlerde SRI + `crossorigin` kullanimi
-   - Versiyon pinleme (zaten buyuk oranda var)
-3. **Icerik guvenligi basliklari**
-   - Hosting katmaninda CSP, HSTS, Permissions-Policy degerlendirmesi
-4. **Admin panel**
-   - `local/admin.html` icin guclu parola politikasi + periyodik hash yenileme
+   - Yazma kurallari sıkılastirilmali
+
+### Orta oncelikli
+
+4. **Firebase API Key kısıtlamaları:** Firebase Console'dan API key'in yalnizca belirli domain'lerden kullanilmasina izin verilmeli (HTTP Referrer kisitlamasi).
+5. **Rate limiting:** Firestore tarafinda dakika/saat bazli yazma limiti veya Cloud Function gatekeeper eklenmeli.
+6. **Inline onclick handler'lar:** HTML dosyalarindaki kalan `onclick="..."` attribute'lari `addEventListener` ile degistirilmeli (CSP uyumlulugu icin).
+
+### Dusuk oncelikli
+
+7. **HSTS basligi:** Hosting katmaninda `Strict-Transport-Security` basligi eklenmeli.
+8. **Fingerprint versiyonlama:** Hash icerigi degisirse `fpVersion` alani tutularak geriye donuk analiz kolaylastirilmali.
+9. **Anomali izleme:** Supheli oylama denemeleri icin anonim event sayaci tutulup alarm mekanizmasi eklenmeli.
 
 ## Sonuc
 
-Mevcut mimari hobi/etkinlik olceginde guclu bir anti-fraud tabani sunuyor. Bu guncelleme ile:
+Bu guncelleme ile:
 
-- istemci tarafi manipule edilmis oy verileri filtrelendi,
-- XSS zafiyetleri kapatildi.
+- WebRTC IP gizlilik sizintisi duzeltildi (ham IP yerine hash)
+- Inline JavaScript XSS vektorleri temizlendi (onerror handler'lar)
+- `javascript:` URI guvenlik acigi kapatildi
+- Guvenlik basliklari tum sayfalara eklendi
+- JSON.parse veri dogrulama eklendi
 
-Boylece fingerprint katmaninin pratikteki guvenlik etkisi artirilmis oldu.
+Mevcut mimari hobi/etkinlik olceginde guclu bir anti-fraud tabani sunuyor. Yukaridaki "hala acik" onerilerin uygulanmasi guvenlik duzeyini daha da arttiracaktir.

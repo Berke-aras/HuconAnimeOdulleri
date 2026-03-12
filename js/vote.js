@@ -218,7 +218,6 @@ function populateGrid(cat, grid) {
           class="candidate-image"
           src="${escapeHTML(candidate.image)}"
           alt="${escapeHTML(candidate.name)}"
-          onerror="this.style.display='none';this.parentElement.querySelector('.candidate-image-placeholder').style.display='flex';"
           loading="lazy"
         >
         <div class="candidate-image-placeholder" style="display:none;">${initials}</div>
@@ -228,6 +227,16 @@ function populateGrid(cat, grid) {
         <span class="anime-name">${escapeHTML(candidate.anime)}</span>
       </div>
     `;
+
+    // Resim yuklenmezse placeholder goster (inline onerror yerine addEventListener)
+    const img = card.querySelector('.candidate-image');
+    if (img) {
+      img.addEventListener('error', function() {
+        this.style.display = 'none';
+        const placeholder = this.parentElement.querySelector('.candidate-image-placeholder');
+        if (placeholder) placeholder.style.display = 'flex';
+      });
+    }
 
     card.addEventListener('click', () => selectCandidate(cat.id, candidate.id, card));
     grid.appendChild(card);
@@ -333,7 +342,6 @@ function showConfirmScreen() {
         class="confirm-item-img"
         src="${escapeHTML(candidate.image)}"
         alt="${escapeHTML(candidate.name)}"
-        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
       >
       <div class="confirm-item-img-placeholder" style="display:none;">${initials}</div>
       <div class="confirm-item-text">
@@ -341,6 +349,15 @@ function showConfirmScreen() {
         <div class="confirm-item-name">${escapeHTML(candidate.name)}</div>
       </div>
     `;
+
+    // Resim yuklenmezse placeholder goster (inline onerror yerine addEventListener)
+    const confirmImg = item.querySelector('.confirm-item-img');
+    if (confirmImg) {
+      confirmImg.addEventListener('error', function() {
+        this.style.display = 'none';
+        if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
+      });
+    }
     list.appendChild(item);
   });
 

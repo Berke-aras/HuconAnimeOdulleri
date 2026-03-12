@@ -35,7 +35,14 @@ function getVoteData() {
     if (!raw) {
       try { raw = sessionStorage.getItem(key); } catch (e) {}
     }
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Yapısal dogrulama: beklenen alanlari kontrol et
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    if (typeof parsed.cardNumber !== 'number' && typeof parsed.cardNumber !== 'undefined') return null;
+    if (parsed.accessToken && typeof parsed.accessToken !== 'string') return null;
+    if (parsed.selections && (typeof parsed.selections !== 'object' || Array.isArray(parsed.selections))) return null;
+    return parsed;
   } catch (e) {
     return null;
   }

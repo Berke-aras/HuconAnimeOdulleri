@@ -337,7 +337,8 @@ const AntifraudManager = (() => {
           if (match) {
             clearTimeout(timeout);
             pc.close();
-            resolve(match[1]);
+            // Gizlilik: Ham IP adresini dogrudan dondurmek yerine aninda hash'le
+            sha256(match[1] + "webrtc_salt_2026").then(h => resolve(h)).catch(() => resolve("webrtc-hash-err"));
           }
         };
       } catch (e) {
@@ -1021,7 +1022,14 @@ const AntifraudManager = (() => {
     try {
       let raw = getLS(SELECTIONS_KEY);
       if (!raw) { try { raw = sessionStorage.getItem(SELECTIONS_KEY); } catch (e) { } }
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Yapısal dogrulama: beklenen alanlari kontrol et
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      if (typeof parsed.cardNumber !== 'number' && typeof parsed.cardNumber !== 'undefined') return null;
+      if (parsed.accessToken && typeof parsed.accessToken !== 'string') return null;
+      if (parsed.selections && (typeof parsed.selections !== 'object' || Array.isArray(parsed.selections))) return null;
+      return parsed;
     } catch (e) { return null; }
   }
 
