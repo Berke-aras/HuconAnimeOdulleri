@@ -5,7 +5,8 @@
 
 let currentCategoryIndex = 0;
 let selections = {};
-let recaptchaWidgetId = null;
+let turnstileWidgetId = null;
+let turnstileToken = null;
 // Aynı kategoride scroll davranisini sadece ilk secimde calistirmak icin
 const scrolledForCategory = {};
 
@@ -22,15 +23,21 @@ function isTouchDevice() {
   );
 }
 
-window.onRecaptchaLoad = function() {
+function renderTurnstile() {
   const container = document.getElementById('recaptchaWidget');
-  if (container && typeof grecaptcha !== 'undefined' && SITE_CONFIG.recaptchaSiteKey) {
-    recaptchaWidgetId = grecaptcha.render('recaptchaWidget', {
-      sitekey: SITE_CONFIG.recaptchaSiteKey,
-      theme: 'dark'
+  if (container && typeof turnstile !== 'undefined' && SITE_CONFIG.turnstileSiteKey) {
+    turnstileWidgetId = turnstile.render('#recaptchaWidget', {
+      sitekey: SITE_CONFIG.turnstileSiteKey,
+      theme: 'dark',
+      callback: function(token) {
+        turnstileToken = token;
+      },
+      'expired-callback': function() {
+        turnstileToken = null;
+      }
     });
   }
-};
+}
 
 const ICON_MAP = {
   trophy: '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
@@ -314,6 +321,9 @@ function showConfirmScreen() {
     `;
     list.appendChild(item);
   });
+
+  // Turnstile widget'ini onay ekraninda renderla
+  setTimeout(() => renderTurnstile(), 100);
 }
 
 function backToVoting() {
@@ -324,9 +334,8 @@ function backToVoting() {
 async function submitVotes() {
   const submitBtn = document.getElementById('submitBtn');
 
-  if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== null) {
-    const recaptchaResponse = grecaptcha.getResponse(recaptchaWidgetId);
-    if (!recaptchaResponse) {
+  if (typeof turnstile !== 'undefined' && turnstileWidgetId !== null) {
+    if (!turnstileToken) {
       const recaptchaContainer = document.getElementById('recaptchaContainer');
       recaptchaContainer.style.outline = '2px solid #ef4444';
       recaptchaContainer.style.outlineOffset = '4px';
@@ -352,8 +361,9 @@ async function submitVotes() {
   } catch (e) {
     document.getElementById('submitOverlay').classList.add('hidden');
     submitBtn.disabled = false;
-    if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== null) {
-      grecaptcha.reset(recaptchaWidgetId);
+    if (typeof turnstile !== 'undefined' && turnstileWidgetId !== null) {
+      turnstile.reset(turnstileWidgetId);
+      turnstileToken = null;
     }
 
     if (e.message.includes('zaten')) {

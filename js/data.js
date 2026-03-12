@@ -10,9 +10,9 @@ const SITE_CONFIG = {
   eventDate: "2026",
   // Hatira karti ozel arka plan resmi (img/ klasorune koyun)
   cardBackground: "img/card-bg.png",
-  // reCAPTCHA v2 Site Key - https://www.google.com/recaptcha/admin adresinden alin
+  // Cloudflare Turnstile Site Key - https://dash.cloudflare.com/ adresinden alin
   // Aktif etmek icin kendi site key'inizi yazin, bos birakinca captcha devre disi kalir
-  recaptchaSiteKey: ""
+  turnstileSiteKey: "0x4AAAAAACpuof0p4A94Fkmq"
 };
 
 const CATEGORIES = [
