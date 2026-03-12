@@ -811,37 +811,52 @@ const AntifraudManager = (() => {
   }
 
   async function submitVote(selections) {
-    if (_votingStartedAt === 0) {
-      throw new Error("Oylama oturumu baslatilmadi. Lutfen sayfayi yenileyip tekrar deneyin.");
-    }
-    const elapsed = Date.now() - _votingStartedAt;
-    if (elapsed < MIN_VOTING_DURATION_MS) {
-      throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
-    }
-
-    // Gonderim oncesi son bir kez daha tekrar oy kontrolu
-    const alreadyVotedStatus = await hasAlreadyVoted();
-    if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
-      throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
-    }
-
-    // Supheli durum kontrolu (Marking)
-    const trustData = await checkSuspicionStatus();
-
     try {
-      const cleanedSelections = sanitizeSelections(selections);
+      if (_votingStartedAt === 0) {
+        throw new Error("Oylama oturumu baslatilmadi. Lutfen sayfayi yenileyip tekrar deneyin.");
+      }
+      const elapsed = Date.now() - _votingStartedAt;
+      if (elapsed < MIN_VOTING_DURATION_MS) {
+        throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
+      }
+
+      // 1. Tekrar oy kontrolü
+      const alreadyVotedStatus = await hasAlreadyVoted();
+      if (alreadyVotedStatus === true || (typeof alreadyVotedStatus === 'object' && alreadyVotedStatus.status === "device_block")) {
+        throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
+      }
+
+      // 2. Güvenlik sinyallerini topla
+      const trustData = await checkSuspicionStatus();
       const visitorId = await getVisitorId();
+      const cleanedSelections = sanitizeSelections(selections);
+
+      // 3. Firestore kaydet
       const cardNumber = await saveVoteAtomically(visitorId, cleanedSelections, trustData);
       markAsVotedLocally();
 
       return { visitorId, cardNumber };
     } catch (err) {
-      console.error("Submission failed:", err);
-      if (err.code === 'permission-denied') throw new Error("Yetkiniz yok veya sistem kapali.");
-      if (err.message.includes("offline") || err.message.includes("failed-precondition") || !navigator.onLine) {
-        throw new Error("Baglanti hatasi: Internetinizi veya reklam engelleyicinizi (AdGuard vb.) kontrol edin.");
+      console.error("AntifraudManager Error:", err);
+      
+      const msg = err.message || "";
+      const stack = err.stack || "";
+      
+      // Eğer hata "Ağ kontrolü" veya "Kimlik doğrulaması" gibi bizim attığımız özel bir hataysa direkt geç
+      if (msg.includes("engellendi") || msg.includes("kapatin")) {
+        throw err;
       }
-      throw new Error("Oyunuz kaydedilemedi: " + err.message);
+
+      if (err.code === 'permission-denied') {
+        throw new Error("Erişim reddedildi. Yetkiniz yok veya sistem kapali.");
+      }
+
+      // Network engellemesi tespiti (ERR_BLOCKED_BY_CLIENT vb.)
+      if (stack.includes("BLOCKED_BY_CLIENT") || stack.includes("access control checks") || !navigator.onLine) {
+        throw new Error("Baglanti engellendi! Reklam engelleyicinizi (AdGuard vb.) devre dışı bırakıp tekrar deneyin.");
+      }
+
+      throw new Error(msg || "Bilinmeyen bir hata olustu. Lutfen internetinizi kontrol edin.");
     }
   }
 
