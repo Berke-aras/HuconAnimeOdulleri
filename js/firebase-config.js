@@ -19,7 +19,11 @@ firebase.initializeApp(firebaseConfig);
 // AdGuard ve bazı engelleyiciler Firestore'un varsayılan bağlantı yöntemini (streaming)
 // bozabiliyor. Long-polling'e zorlamak bağlantı hatalarını azaltır.
 const db = firebase.firestore();
-db.settings({ experimentalForceLongPolling: true });
+try {
+  db.settings({ experimentalForceLongPolling: true, merge: true });
+} catch (e) {
+  console.warn("Firestore settings error (ignored):", e);
+}
 
 // Diğer scriptlerin (app-core.js vb.) erişebilmesi için global'e çıkarıyoruz
 window.db = db;

@@ -113,10 +113,12 @@ if (typeof AntifraudManager !== 'undefined') {
   const alreadyVotedSection = document.getElementById('alreadyVotedSection');
   const voteSection = document.getElementById('voteSection');
 
+  console.log("Vote UI: Initializing...");
   // --- LAZY INITIALIZATION ---
   // 1. UI'yi hemen hazırla
   buildPillNav();
   renderCategory(false);
+  console.log("Vote UI: Initial rendering complete.");
   
   // 2. Arka plan kontrollerini yaparken loading'i kaldır (Hızlı yükleme hissi)
   // Sadece oylamanın başlangıç zamanını kaydet
@@ -294,6 +296,7 @@ function selectCandidate(categoryId, candidateId, cardElement) {
 
     const isMobile = isTouchDevice();
 
+    const vh = window.innerHeight || document.documentElement.clientHeight;
     // Mobilde her secimde butona kaydir (kullanim kolayligi icin)
     if (isMobile) {
       const rect = btn.getBoundingClientRect();
@@ -308,7 +311,6 @@ function selectCandidate(categoryId, candidateId, cardElement) {
     if (scrolledForCategory[categoryId]) return;
 
     const rect = btn.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
     const isOffScreen = rect.bottom > vh || rect.top < 0;
 
     if (isOffScreen) {
