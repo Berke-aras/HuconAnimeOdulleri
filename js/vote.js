@@ -262,15 +262,17 @@ function populateGrid(cat, grid) {
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       </div>
-      <div style="overflow:hidden;">
-        <img
-          class="candidate-image"
-          src="${escapeHTML(candidate.image)}"
-          alt="${escapeHTML(candidate.name)}"
-          onerror="this.style.display='none';this.parentElement.querySelector('.candidate-image-placeholder').style.display='flex';"
-          loading="lazy"
-        >
-        <div class="candidate-image-placeholder" style="display:none;">${initials}</div>
+      <div class="candidate-image-container" style="overflow:hidden; position:relative; width:100%; aspect-ratio: 3/4; display: flex;">
+        <div class="candidate-image-wrapper" style="width:100%; height:100%; position:relative; display:flex;">
+           <img
+            class="candidate-image"
+            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            alt="${escapeHTML(candidate.name)}"
+            style="opacity: 0; transition: opacity 0.5s ease; width:100%; height:100%; object-fit:cover;"
+            onerror="this.style.display='none'; if(!this.parentElement.querySelector('.candidate-image-placeholder')) this.parentElement.insertAdjacentHTML('beforeend', '<div class=\'candidate-image-placeholder\' style=\'display:flex;\'>${initials}</div>');"
+          >
+        </div>
+        <div class="candidate-image-placeholder" style="display:flex;">${initials}</div>
       </div>
       <div class="candidate-info">
         <h3>${escapeHTML(candidate.name)}</h3>
@@ -278,9 +280,50 @@ function populateGrid(cat, grid) {
       </div>
     `;
 
+    // Resim yukleme (Asenkron)
+    AniListService.resolveCandidateImage(candidate, cat.id).then(imageUrl => {
+      const img = card.querySelector('.candidate-image');
+      const placeholder = card.querySelector('.candidate-image-placeholder');
+      const wrapper = card.querySelector('.candidate-image-wrapper');
+      
+      if (imageUrl) {
+        if (Array.isArray(imageUrl) && imageUrl.length > 1) {
+          // Ciftler icin iki resim goster
+          wrapper.innerHTML = '';
+          imageUrl.forEach((url, index) => {
+            const sideImg = document.createElement('img');
+            sideImg.className = 'candidate-image';
+            sideImg.src = url;
+            sideImg.style.cssText = `width:50%; height:100%; object-fit:cover; transition: opacity 0.5s ease; ${index === 0 ? 'border-right:1px solid rgba(255,255,255,0.1)' : ''}`;
+            wrapper.appendChild(sideImg);
+          });
+          placeholder.style.display = 'none';
+        } else {
+          // Tek resim
+          const finalUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
+          img.src = finalUrl;
+          img.onload = () => {
+            img.style.opacity = '1';
+            placeholder.style.display = 'none';
+          };
+        }
+      } else {
+        img.onerror(); // Trigger the onerror for the original img element if no URL is resolved
+      }
+    });
+
     card.addEventListener('click', () => selectCandidate(cat.id, candidate.id, card));
     grid.appendChild(card);
   });
+
+  // Arkaplanda bir sonraki kategorinin resimlerini on yukle (UX hızlandırma)
+  const nextCatIdx = CATEGORIES.findIndex(c => c.id === cat.id) + 1;
+  if (nextCatIdx < CATEGORIES.length) {
+    const nextCat = CATEGORIES[nextCatIdx];
+    setTimeout(() => {
+      AniListService.prefetchCategoryImages(nextCat.candidates, nextCat.id);
+    }, 1000);
+  }
 }
 
 function selectCandidate(categoryId, candidateId, cardElement) {

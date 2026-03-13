@@ -145,7 +145,11 @@ async function renderCard(data) {
     };
     selections.push(sel);
 
-    const imgPromise = loadImageSafe(candidate.image).then(img => { sel.image = img; });
+    const imgPromise = AniListService.resolveCandidateImage(candidate, cat.id).then(url => {
+      if (url) {
+        return loadImageSafe(url).then(img => { sel.image = img; });
+      }
+    });
     imagePromises.push(imgPromise);
   });
 
