@@ -21,5 +21,5 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 db.settings({ experimentalForceLongPolling: true, merge: true });
 
-// Diğer scriptlerin (antifraud.js vb.) erişebilmesi için global'e çıkarıyoruz
+// Diğer scriptlerin (app-core.js vb.) erişebilmesi için global'e çıkarıyoruz
 window.db = db;

@@ -69,9 +69,9 @@ const AntifraudManager = (() => {
           _cache.ipHash = await sha256(ip + "anime_vote_salt_2026");
           return _cache.ipHash;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
-    
+
     // Tüm IP servisleri blokluysa (AdGuard vb. çok katıysa)
     console.warn("Ag kontrolü engellendi. Ag imzasi olmadan devam ediliyor.");
     _cache.ipHash = "blocked_network";
@@ -212,7 +212,7 @@ const AntifraudManager = (() => {
         try {
           const extList = gl.getSupportedExtensions();
           extensions = extList ? extList.sort().join(",") : "";
-        } catch (extErr) {}
+        } catch (extErr) { }
 
         // WebGL parametreleri - GPU yeteneklerini ayirt eder
         let params = "";
@@ -227,7 +227,7 @@ const AntifraudManager = (() => {
             gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE) ? gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE).toString() : "",
             gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE) ? gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE).toString() : ""
           ].join(",");
-        } catch (paramErr) {}
+        } catch (paramErr) { }
 
         // WebGL kaynaklarini temizle (memory leak onleme)
         try {
@@ -237,7 +237,7 @@ const AntifraudManager = (() => {
           gl.deleteProgram(program);
           const loseCtx = gl.getExtension("WEBGL_lose_context");
           if (loseCtx) loseCtx.loseContext();
-        } catch (cleanupErr) {}
+        } catch (cleanupErr) { }
 
         clearTimeout(timeout);
         resolve(hash.toString(16) + "~" + vendor + "~" + renderer + "~" + extensions.length + "~" + params);
@@ -345,11 +345,11 @@ const AntifraudManager = (() => {
       try {
         const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
         if (!RTCPeerConnection) return resolve("no-webrtc");
-        
+
         const pc = new RTCPeerConnection({ iceServers: [] });
         pc.createDataChannel("");
-        pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
-        
+        pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => { });
+
         pc.onicecandidate = (ice) => {
           if (!ice || !ice.candidate || !ice.candidate.candidate) return;
           const candidate = ice.candidate.candidate;
@@ -409,12 +409,12 @@ const AntifraudManager = (() => {
       const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
       if (!debugInfo) return "no-debug";
       const result = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + "~" +
-             gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
       // Kaynaklari temizle
       try {
         const loseCtx = gl.getExtension("WEBGL_lose_context");
         if (loseCtx) loseCtx.loseContext();
-      } catch (cleanupErr) {}
+      } catch (cleanupErr) { }
       return result;
     } catch (e) { return "err"; }
   }
@@ -459,10 +459,10 @@ const AntifraudManager = (() => {
       for (let i = 0; i < pixels.length; i += 4) {
         // En düsük 1-2 biti maskeleyerek (yok sayarak) tarayicinin eklediği minik gürültüleri eliyoruz
         const r = pixels[i] & 0xFC;
-        const g = pixels[i+1] & 0xFC;
-        const b = pixels[i+2] & 0xFC;
-        const a = pixels[i+3] & 0xFC;
-        
+        const g = pixels[i + 1] & 0xFC;
+        const b = pixels[i + 2] & 0xFC;
+        const a = pixels[i + 3] & 0xFC;
+
         hash = ((hash << 5) - hash) + (r + g + b + a);
         hash = hash & hash;
       }
@@ -697,7 +697,7 @@ const AntifraudManager = (() => {
         .where("ipHash", "==", ipHash || "none")
         .limit(1)
         .get();
-      
+
       if (!exactQuery.empty) return { id: exactQuery.docs[0].id, ...exactQuery.docs[0].data() };
     } catch (e) { console.warn("Exact match query failed:", e); }
 
@@ -712,7 +712,7 @@ const AntifraudManager = (() => {
         .where("fontHash", "==", hashes.fontHash || "none")
         .limit(100)
         .get();
-      
+
       hardwareQuery.docs.forEach(doc => {
         const v = doc.data();
         let matchCount = (v.ipHash === ipHash) ? 1 : 0;
@@ -733,7 +733,7 @@ const AntifraudManager = (() => {
         .where("ipHash", "==", ipHash || "none")
         .limit(100)
         .get();
-        
+
       ipQuery.docs.forEach(doc => {
         if (candidates.some(c => c.id === doc.id)) return;
 
@@ -754,7 +754,7 @@ const AntifraudManager = (() => {
 
     // --- EN IYI ADAYI SEC (Weighted Best Candidate Selection) ---
     const targetDrift = parseFloat(getClockDrift()) || 0;
-    
+
     // Sinyal agirliklari (Cihazı ne kadar benzersiz kildigi)
     const weights = {
       ip: 1.0,      // Ağ kimliği
@@ -771,7 +771,7 @@ const AntifraudManager = (() => {
       if (b._matchCount !== a._matchCount) {
         return b._matchCount - a._matchCount;
       }
-      
+
       // 2- Puanlar eşitse "Ağırlıklı Skor" hesapla (Hangi sinyaller daha kaliteli?)
       const getWeightedScore = (c) => {
         let score = (c.ipHash === ipHash ? weights.ip : 0);
@@ -805,7 +805,7 @@ const AntifraudManager = (() => {
     const hardwareSignature = await generateHardwareSignature(); // Tek bir disiplin altina aldik
     const ipHash = await getIPHash();
     const clockDrift = getClockDrift();
-    
+
     // Admin paneli icin detayli donanim bilgisi
     const deviceData = {
       memory: navigator.deviceMemory || "bilinmiyor",
@@ -860,11 +860,11 @@ const AntifraudManager = (() => {
       });
 
       clearRevoteMode(); // Başarılı gönderimden sonra bayrağı temizle
-      
+
       // Kaydı anında yerel depolara yay
       const accessToken = await generateAccessToken(visitorId, nextNumber);
       storeVoteData(selections, nextNumber, accessToken);
-      
+
       return nextNumber;
     });
   }
@@ -913,11 +913,11 @@ const AntifraudManager = (() => {
 
     // 1. Yerel kontrol (Bayraklar)
     const localFlag = getVotedLS() || getCookie() || getWindowName();
-    
+
     // 2. Tarayici bazli kontrol (visitorId)
     const visitorId = await getVisitorId();
     const firestoreData = await checkFirestore(visitorId);
-    
+
     if (firestoreData) {
       // Kimlik bulundu, yerel verileri guncelle
       markAsVotedLocally();
@@ -931,7 +931,7 @@ const AntifraudManager = (() => {
     const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
     const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
-    
+
     if (matchedData) {
       // Donanim eslesmesi ile kimlik kurtarma
       markAsVotedLocally();
@@ -954,19 +954,19 @@ const AntifraudManager = (() => {
 
     // IP + Donanim sinyallerini kontrol et
     const ipQuery = await db.collection("votes").where("ipHash", "==", ipHash || "none").limit(10).get();
-    
+
     let maxMatch = 0;
-    for(const doc of ipQuery.docs) {
+    for (const doc of ipQuery.docs) {
       const v = doc.data();
       let matchCount = 1; // IP eslesiyor
-      if(v.audioHash === hardwareHashes.audioHash) matchCount++;
-      if(v.webglHash === hardwareHashes.webglHash) matchCount++;
-      if(v.fontHash === hardwareHashes.fontHash) matchCount++;
-      if(v.canvasHash === hardwareHashes.canvasHash) matchCount++;
-      if(v.voicesHash === hardwareHashes.voicesHash) matchCount++;
-      if(v.localIpHash === hardwareHashes.localIpHash) matchCount++;
-      
-      if(matchCount > maxMatch) maxMatch = matchCount;
+      if (v.audioHash === hardwareHashes.audioHash) matchCount++;
+      if (v.webglHash === hardwareHashes.webglHash) matchCount++;
+      if (v.fontHash === hardwareHashes.fontHash) matchCount++;
+      if (v.canvasHash === hardwareHashes.canvasHash) matchCount++;
+      if (v.voicesHash === hardwareHashes.voicesHash) matchCount++;
+      if (v.localIpHash === hardwareHashes.localIpHash) matchCount++;
+
+      if (matchCount > maxMatch) maxMatch = matchCount;
     }
 
     // IP disindaki donanim eslesmelerine de bakalim
@@ -977,18 +977,18 @@ const AntifraudManager = (() => {
       .where("fontHash", "==", hardwareHashes.fontHash || "none_f")
       .limit(5)
       .get();
-    
+
     if (!hardwareQuery.empty) {
       // Donanim eslesiyorsa (IP farkli olsa bile) supheli kabul et
       // Bu adaylar icinden en yüksek matchCount'u bulmaya calis
-      for(const doc of hardwareQuery.docs) {
+      for (const doc of hardwareQuery.docs) {
         const v = doc.data();
         let matchCount = (v.ipHash === ipHash) ? 1 : 0;
         matchCount += 3; // Audio, WebGL, Font esleşti
-        if(v.canvasHash === hardwareHashes.canvasHash) matchCount++;
-        if(v.voicesHash === hardwareHashes.voicesHash) matchCount++;
-        if(v.localIpHash === hardwareHashes.localIpHash) matchCount++;
-        if(matchCount > maxMatch) maxMatch = matchCount;
+        if (v.canvasHash === hardwareHashes.canvasHash) matchCount++;
+        if (v.voicesHash === hardwareHashes.voicesHash) matchCount++;
+        if (v.localIpHash === hardwareHashes.localIpHash) matchCount++;
+        if (matchCount > maxMatch) maxMatch = matchCount;
       }
     }
 
@@ -1011,32 +1011,41 @@ const AntifraudManager = (() => {
     _votingStartedAt = Date.now();
   }
 
-  async function submitVote(selections) {
+  async function submitVote(selections, forceFallback = false) {
     try {
-      // Oylari gondermeden once arka plandaki tüm parmak izi toplama isleminin
+      // Oylari gondermeden once arka plandaki tüm parmak ist toplama isleminin
       // kesinlikle bittiginden emin ol (Güclü bir güvence)
-      await warmup();
+      if (!forceFallback) {
+        await warmup();
+      }
+
       if (_votingStartedAt === 0) {
         throw new Error("Oylama oturumu baslatilmadi. Lutfen sayfayi yenileyip tekrar deneyin.");
       }
       const elapsed = Date.now() - _votingStartedAt;
-      if (elapsed < MIN_VOTING_DURATION_MS) {
+      if (elapsed < MIN_VOTING_DURATION_MS && !forceFallback) {
         throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
       }
 
-      // 1. Tekrar oy kontrolü
-      const alreadyVotedStatus = await hasAlreadyVoted();
-      if (alreadyVotedStatus) {
-        // visitor_match veya device_block fark etmeksizin engelleyelim
-        throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
+      // 1. Tekrar oy kontrolü (Fallback modunda bile en azından yerel kontrol yapalım)
+      if (!forceFallback) {
+        const alreadyVotedStatus = await hasAlreadyVoted();
+        if (alreadyVotedStatus) {
+          throw new Error("Bu cihazdan veya agdan zaten oy verilmis. Tekrar oy kullanamazsiniz.");
+        }
       }
 
       // 2. Güvenlik sinyallerini topla
-      const trustData = await checkSuspicionStatus();
-      
+      let trustData = { trustScore: "high", suspicionReason: null };
+      if (forceFallback) {
+        trustData = { trustScore: "low", suspicionReason: "warmup_timeout_adblocker" };
+      } else {
+        trustData = await checkSuspicionStatus();
+      }
+
       // Eğer trust score "low" gelirse (donanım eşleşmesi), normalde bloke ederiz.
-      // ANCAK: Revote modundaysak kendi eski oyumuzla eşleşeceğimiz için bu bloğu atlıyoruz.
-      if (trustData.trustScore === "low" && !isRevoteMode()) {
+      // ANCAK: Revote modundaysak veya Fallback modundaysak geçişe izin veriyoruz.
+      if (trustData.trustScore === "low" && !isRevoteMode() && !forceFallback) {
         throw new Error("Guvenlik denetimi basarisiz. Bu cihazdan artik oy kullanilamaz.");
       }
 
@@ -1050,10 +1059,10 @@ const AntifraudManager = (() => {
       return { visitorId, cardNumber };
     } catch (err) {
       console.error("AntifraudManager Error:", err);
-      
+
       const msg = err.message || "";
       const stack = err.stack || "";
-      
+
       // Eğer hata "Ağ kontrolü" veya "Kimlik doğrulaması" gibi bizim attığımız özel bir hataysa direkt geç
       if (msg.includes("engellendi") || msg.includes("kapatin")) {
         throw err;
@@ -1110,9 +1119,9 @@ const AntifraudManager = (() => {
           if (match && match[1]) raw = atob(match[1]);
         } catch (e) { }
       }
-      
+
       let data = raw ? JSON.parse(raw) : null;
-      
+
       // Still no data? try deep storage
       if (!data) data = await getIDBData(SELECTIONS_KEY);
       if (!data) data = await getCacheData(SELECTIONS_KEY);
@@ -1166,7 +1175,7 @@ const AntifraudManager = (() => {
   }
   async function warmup() {
     if (_cache.warmupPromise) return _cache.warmupPromise;
-    
+
     _cache.warmupPromise = (async () => {
       console.log("AntifraudManager: Sinyaller toplaniyor...");
       try {
@@ -1182,7 +1191,7 @@ const AntifraudManager = (() => {
         console.warn("AntifraudManager: Bazi sinyaller toplanamadi:", e);
       }
     })();
-    
+
     return _cache.warmupPromise;
   }
 
@@ -1217,6 +1226,6 @@ async function hatiraRevote(e) {
   try {
     await AntifraudManager.clearLocalVoteData();
     AntifraudManager.enableRevoteMode();
-  } catch (err) {}
+  } catch (err) { }
   window.location.href = 'oylama.html';
 }

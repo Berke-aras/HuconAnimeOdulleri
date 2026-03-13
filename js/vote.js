@@ -113,69 +113,63 @@ if (typeof AntifraudManager !== 'undefined') {
   const alreadyVotedSection = document.getElementById('alreadyVotedSection');
   const voteSection = document.getElementById('voteSection');
 
-  try {
-    // 1. Hızlı Yerel Kontrol (Derin depo kontrolü dahil)
-    const localData = await AntifraudManager.getVoteData();
-    const hasVotedFlag = document.cookie.includes('animeoy_v');
+  // --- LAZY INITIALIZATION ---
+  // 1. UI'yi hemen hazırla
+  buildPillNav();
+  renderCategory(false);
+  
+  // 2. Arka plan kontrollerini yaparken loading'i kaldır (Hızlı yükleme hissi)
+  // Sadece oylamanın başlangıç zamanını kaydet
+  if (typeof AntifraudManager !== 'undefined') {
+    AntifraudManager.markVotingStarted();
+  }
 
-    if (localData || hasVotedFlag) {
+  try {
+    // 3. Hızlı Yerel Kontrol (Cookie check)
+    const hasVotedFlag = document.cookie.includes('animeoy_v');
+    if (hasVotedFlag) {
       loadingOverlay.classList.add('hidden');
       alreadyVotedSection.classList.remove('hidden');
+      voteSection.classList.add('hidden');
       return;
     }
 
-    // 2. Tam Kontrol (Arka plan sinyallerini bekle)
+    // 4. Derin Kontrollere sessizce başla (Loading'i biraz daha tutabiliriz ama UI arkada hazır)
     const votedPromise = AntifraudManager.hasAlreadyVoted();
-    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 6000));
     
-    const voted = await Promise.race([votedPromise, timeoutPromise]);
+    // UI'yi oylamaya hazır hale getir ama henüz oylama ekranını tam açma 
+    // (Eğer zaten oy vermişse saniyeler içinde ekran değişecek)
+    const voted = await Promise.race([
+      votedPromise,
+      new Promise(resolve => setTimeout(() => resolve('timeout'), 4000)) // Daha kısa timeout
+    ]);
     
     loadingOverlay.classList.add('hidden');
 
     if (voted === 'timeout') {
-      console.warn("Antifraud: Zaman aşımı, devam ediliyor.");
+      console.warn("Antifraud: Warmup timeout. UI is ready.");
+      voteSection.classList.remove('hidden');
     } else if (voted) {
-      // Eğer bir obje döndüyse, kurtarılmış veri var demektir
       if (typeof voted === 'object' && voted.data) {
         const d = voted.data;
         const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
         AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
-        
-        // Şık karşılama ekranını göster
         document.getElementById('identityRecoveredSection').classList.remove('hidden');
       } else {
-        // Klasik 'zaten oy verdiniz' ekranı
         alreadyVotedSection.classList.remove('hidden');
       }
+      voteSection.classList.add('hidden'); // Oylama alanını sakla
       return;
+    } else {
+      // Sorun yok, oylamaya devam
+      voteSection.classList.remove('hidden');
     }
 
-    // Oylama Oturumunu Başlat
-    AntifraudManager.markVotingStarted();
-    voteSection.classList.remove('hidden');
-    buildPillNav();
-    renderCategory(false);
   } catch (e) {
-    console.error("Init Error:", e);
+    console.error("Lazy Init Check failed (likely Adblock):", e);
     loadingOverlay.classList.add('hidden');
-    
-    if (e.message.includes('engellendi') || e.message.includes('AdGuard')) {
-      errorSection.innerHTML = `
-        <div class="alert alert-error">
-          <h2 style="font-size: 1.4rem; margin-bottom: 12px;">Bağlantı Engellendi!</h2>
-          <p style="margin-bottom: 16px;">Sistemimiz güvenliğiniz için gereken bazı servisleri (Firestore, Turnstile vb.) yükleyemedi. Muhtemelen <strong>AdGuard</strong> veya benzeri bir reklam engelleyici bu bağlantıları engelliyor.</p>
-          <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 20px;">
-            <strong>Çözüm:</strong>
-            <ul style="margin-top: 8px; padding-left: 20px;">
-              <li>Reklam engelleyicinizi (AdGuard, uBlock vb.) bu site için devre dışı bırakın.</li>
-              <li>Sayfayı yenileyerek tekrar deneyin.</li>
-            </ul>
-          </div>
-          <button onclick="window.location.reload()" class="btn btn-primary">Tekrar Dene</button>
-        </div>
-      `;
-    }
-    errorSection.classList.remove('hidden');
+    // Eğer Firestore kilitliyse bile oylama ekranını açalım (Graceful Degradation)
+    voteSection.classList.remove('hidden');
   }
 })();
 
@@ -453,17 +447,39 @@ async function submitVotes() {
   const overlay = document.getElementById('submitOverlay');
   const loadingText = overlay.querySelector('.loading-text');
   
-  // Eğer arka plan veri toplama henüz bitmediyse kullanıcıya özel mesaj göster
-  if (typeof AntifraudManager !== 'undefined' && AntifraudManager.isWarmupReady && !AntifraudManager.isWarmupReady()) {
-    loadingText.textContent = "Oylarınız işleniyor (Güvenlik verileri toplanıyor)...";
-  } else {
-    loadingText.textContent = "Oylarınız gönderiliyor...";
-  }
-
   overlay.classList.remove('hidden');
 
   try {
-    const result = await AntifraudManager.submitVote(selections);
+    let forceFallback = false;
+    let fallbackTimeout = null;
+
+    // Karmaşık Arka Plan Bekleme Mantığı (UI Desteğiyle)
+    if (typeof AntifraudManager !== 'undefined' && AntifraudManager.warmup) {
+      const warmupPromise = AntifraudManager.warmup();
+      
+      // 15 saniyelik "Zorunlu Geçiş" sayacı
+      const timeoutPromise = new Promise(resolve => {
+        fallbackTimeout = setTimeout(() => {
+          console.warn("Submission: Background checks timed out. Forcing fallback.");
+          forceFallback = true;
+          loadingText.textContent = "Bağlantı zayıf, güvenli modda gönderiliyor...";
+          resolve('timeout');
+        }, 15000);
+      });
+
+      // Warmup bittiğinde yazıyı güncelle
+      warmupPromise.then(() => {
+        if (!overlay.classList.contains('hidden') && !forceFallback) {
+          loadingText.textContent = "Oylarınız gönderiliyor...";
+          if (fallbackTimeout) clearTimeout(fallbackTimeout);
+        }
+      });
+
+      // Önce warmup'ı bekle (Max 15 sn)
+      await Promise.race([warmupPromise, timeoutPromise]);
+    }
+
+    const result = await AntifraudManager.submitVote(selections, forceFallback);
 
     const accessToken = await AntifraudManager.generateAccessToken(
       result.visitorId, result.cardNumber
