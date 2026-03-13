@@ -61,6 +61,8 @@ body::after {
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  transform: translate3d(0,0,0);
+  will-change: transform;
 }
 
 body::before {
@@ -106,14 +108,24 @@ body::after {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: var(--card-radius);
+  transform: translate3d(0,0,0); /* Force GPU Layer */
+}
+
+@media (max-width: 768px) {
+  :root { --glass-blur: 10px; }
+  .glass { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 }
 
 .glass-strong {
-  background: rgba(12, 12, 30, 0.8);
+  background: rgba(12, 12, 30, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--card-radius);
+}
+
+@media (max-width: 768px) {
+  .glass-strong { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 }
 
 /* --- Layout --- */
@@ -156,7 +168,6 @@ body::after {
   align-items: center;
   justify-content: center;
   margin-bottom: var(--space-md);
-  animation: float 4s ease-in-out infinite;
   box-shadow: 0 0 60px var(--accent-glow);
 }
 
@@ -164,11 +175,12 @@ body::after {
   width: 60px;
   height: 60px;
   color: white;
+  animation: float 6s ease-in-out infinite;
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-6px); }
 }
 
 .hero h1 {
@@ -597,9 +609,9 @@ body::after {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transform: scale(0.5);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.5);
+  transform: scale(0.6);
+  transition: transform 0.4s cubic-bezier(0.34, 1.3, 0.64, 1), opacity 0.3s ease;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
 }
 
 .candidate-check svg {
@@ -657,8 +669,8 @@ body::after {
 }
 
 @keyframes categorySlideIn {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ============================================================
@@ -969,7 +981,8 @@ body::after {
   border: 3px solid rgba(124, 58, 237, 0.15);
   border-top-color: var(--accent-primary);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 1.8s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -1002,11 +1015,14 @@ body::after {
    ANIMASYONLAR
    ============================================================ */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.fade-in-up { animation: fadeInUp 0.6s ease forwards; }
+.fade-in-up { 
+  animation: fadeInUp 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+  will-change: transform, opacity;
+}
 .fade-in-up-delay-1 { animation-delay: 0.12s; opacity: 0; }
 .fade-in-up-delay-2 { animation-delay: 0.24s; opacity: 0; }
 .fade-in-up-delay-3 { animation-delay: 0.36s; opacity: 0; }
@@ -1099,9 +1115,28 @@ body::after {
 ::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.3); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
 
-/* Erisebilirlik */
+/* Erisebilirlik & Performans */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { 
+    animation-duration: 0.01ms !important; 
+    animation-iteration-count: 1 !important; 
+    transition-duration: 0.01ms !important; 
+    scroll-behavior: auto !important;
+  }
+  body::before, body::after { display: none; } /* Ağır arka planları kapat */
+  .glass, .glass-strong { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: var(--bg-card-solid); }
+}
+
+/* Low Performance Mode (Auto-detected) */
+.low-perf-device body::after { 
+  display: none !important; /* Yıldız kaymasını kapat */
+}
+
+.low-perf-device .glass, 
+.low-perf-device .glass-strong { 
+  backdrop-filter: blur(4px) !important; /* Minimum blur */
+  -webkit-backdrop-filter: blur(4px) !important;
+  background: rgba(12, 12, 30, 0.9) !important;
 }
 
 /* Selection */
@@ -1186,4 +1221,16 @@ body::after {
     bottom: 12px;
     max-width: none;
   }
+}
+
+/* KVKK Checkbox Güzelleştirme */
+#kvkkCheckbox {
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+#kvkkCheckbox:active {
+  transform: scale(0.9);
 }

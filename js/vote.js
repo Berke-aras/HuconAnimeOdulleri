@@ -142,13 +142,14 @@ function renderCategory(animate) {
 
   if (animate) {
     grid.style.opacity = '0';
-    grid.style.transform = 'translateX(24px)';
-    setTimeout(() => {
-      populateGrid(cat, grid);
-      grid.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+    grid.style.transform = 'translateY(16px)';
+    // No setTimeout delay needed if we handle it cleanly
+    populateGrid(cat, grid);
+    requestAnimationFrame(() => {
+      grid.style.transition = 'opacity 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)';
       grid.style.opacity = '1';
-      grid.style.transform = 'translateX(0)';
-    }, 150);
+      grid.style.transform = 'translateY(0)';
+    });
   } else {
     populateGrid(cat, grid);
   }
@@ -198,9 +199,9 @@ function populateGrid(cat, grid) {
   grid.style.setProperty('--card-w', cardW + 'px');
 
   cat.candidates.forEach((candidate, idx) => {
-    const card = document.createElement('div');
     card.className = 'candidate-card';
-    card.style.animationDelay = `${idx * 0.05}s`;
+    card.style.animation = `fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 0.03}s forwards`;
+    card.style.opacity = '0';
     if (selections[cat.id] === candidate.id) {
       card.classList.add('selected');
     }
@@ -249,7 +250,11 @@ function selectCandidate(categoryId, candidateId, cardElement) {
 
     // Mobilde her secimde butona kaydir (kullanim kolayligi icin)
     if (isMobile) {
-      btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const rect = btn.getBoundingClientRect();
+      const isVisible = rect.top >= 0 && rect.bottom <= vh;
+      if (!isVisible) {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -258,9 +263,9 @@ function selectCandidate(categoryId, candidateId, cardElement) {
 
     const rect = btn.getBoundingClientRect();
     const vh = window.innerHeight || document.documentElement.clientHeight;
-    const shouldScrollDown = rect.bottom > vh; // sadece buton ekranin altinda ise
+    const isOffScreen = rect.bottom > vh || rect.top < 0;
 
-    if (shouldScrollDown) {
+    if (isOffScreen) {
       btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
