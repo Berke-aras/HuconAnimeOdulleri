@@ -20,21 +20,36 @@
   <!-- Erisim Yok -->
   <div id="noDataSection" class="hero hidden">
     <div class="hero-content">
-      <div class="hero-logo" style="background: linear-gradient(135deg, #ef4444, #f59e0b);">
+      <div class="hero-logo" style="background: linear-gradient(135deg, #ef4444, #f59e0b); box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);">
         <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
       </div>
-      <h1>Hatira Karti Bulunamadi</h1>
-      <p class="subtitle">Oy verileriniz bulunamadi. Oylama yapmadiyseniz veya verileriniz kaybolduysa tekrar oy verebilirsiniz.</p>
+      <h1 style="background: linear-gradient(135deg, #fff, #fca5a5); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Hatıra Kartı Bulunamadı</h1>
+      <p class="subtitle">Oy verileriniz bu cihazda bulunamadı. Eğer daha önce oy verdiyseniz ve verileriniz kaybolduysa, sistemimiz sizi otomatik tanıyabilir.</p>
       <div style="display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;justify-content:center;">
         <a href="oylama.html" class="btn btn-primary" id="hatiraRevoteBtn" onclick="hatiraRevote(event)">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
           </svg>
-          Oylamaya Git
+          Oylama / Kurtarma sayfasına git
         </a>
         <a href="index.html" class="btn btn-secondary">Ana Sayfa</a>
+      </div>
+
+      <!-- FAQ / Destek -->
+      <div class="faq-section" style="margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border-color); text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          Oy verdiğinizden emin misiniz?
+        </h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+          Oyunuzun bu ekranda görünmemesi, tarayıcı verilerinizin silinmiş olmasından kaynaklanabilir. Sistemimiz kimliğinizi otomatik kurtarmaya çalışacaktır. Eğer kurtarılamazsa:
+        </p>
+        <ul style="font-size: 0.85rem; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; margin-bottom: 24px;">
+          <li>Wi-Fi'ı kapatıp mobil veri ile oylama/kurtarma sayfasını tekrar açın.</li>
+          <li>Instagram üzerinden destek alın: <a href="https://instagram.com/hucon_26" target="_blank" style="text-decoration: underline; color: inherit; font-weight: bold;">@hucon_26</a></li>
+        </ul>
       </div>
     </div>
   </div>

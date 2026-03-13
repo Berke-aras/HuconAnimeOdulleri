@@ -140,8 +140,13 @@ if (typeof AntifraudManager !== 'undefined') {
         const d = voted.data;
         const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
         AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
+        
+        // Şık karşılama ekranını göster
+        document.getElementById('identityRecoveredSection').classList.remove('hidden');
+      } else {
+        // Klasik 'zaten oy verdiniz' ekranı
+        alreadyVotedSection.classList.remove('hidden');
       }
-      alreadyVotedSection.classList.remove('hidden');
       return;
     }
 
