@@ -20,7 +20,12 @@ firebase.initializeApp(firebaseConfig);
 // bozabiliyor. Long-polling'e zorlamak bağlantı hatalarını azaltır.
 const db = firebase.firestore();
 try {
-  db.settings({ experimentalForceLongPolling: true, merge: true });
+  // Bazı tarayıcı ve engelleyici durumlarında streaming (varsayılan) bozulabiliyor.
+  // Force ve AutoDetect çakışmasını önlemek için ikisini birden ayarlıyoruz.
+  db.settings({ 
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: false 
+  });
 } catch (e) {
   console.warn("Firestore settings error (ignored):", e);
 }

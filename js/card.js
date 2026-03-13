@@ -26,6 +26,7 @@ const COLORS = {
 };
 
 let _cardCanvas = null;
+let _scale = 1; // Adaptive scale factor
 
 // Redundant getVoteData removed. Using AntifraudManager.getVoteData() instead.
 
@@ -92,10 +93,19 @@ function drawInitialsThumb(ctx, initials, x, y, size, radius, color) {
 }
 
 async function renderCard(data) {
+  const isLowPerf = typeof PerformanceOptimizer !== 'undefined' && PerformanceOptimizer.isLowPerf;
+  _scale = isLowPerf ? 0.8 : 1; // 60% resolution for low-end devices
+
   const canvas = document.getElementById('cardCanvas');
-  canvas.width = CARD_W;
-  canvas.height = CARD_H;
+  const finalW = CARD_W * _scale;
+  const finalH = CARD_H * _scale;
+
+  canvas.width = finalW;
+  canvas.height = finalH;
+
+  // Real scale for context drawing
   const ctx = canvas.getContext('2d');
+  ctx.scale(_scale, _scale);
 
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, CARD_W, CARD_H);
@@ -215,8 +225,14 @@ function drawNumberSection(ctx, data, hasBg) {
   ctx.letterSpacing = '0px';
 
   ctx.font = 'bold 120px Outfit, sans-serif';
-  ctx.shadowColor = COLORS.numberGlow;
-  ctx.shadowBlur = 50;
+
+  // Disable shadows on low-perf devices to save RAM/GPU
+  const isLowPerf = typeof PerformanceOptimizer !== 'undefined' && PerformanceOptimizer.isLowPerf;
+  if (!isLowPerf) {
+    ctx.shadowColor = COLORS.numberGlow;
+    ctx.shadowBlur = 50;
+  }
+
   ctx.fillStyle = COLORS.number;
   ctx.fillText(numStr, CARD_W / 2, CARD_PAD + 225);
   ctx.shadowBlur = 0;
@@ -537,13 +553,13 @@ let _voteData = null;
 
 async function init() {
   let data = await AntifraudManager.getVoteData();
-  
+
   // Veri dogrulama ve kurtarma (Tamper Protection)
   try {
     const voted = await AntifraudManager.hasAlreadyVoted();
     if (typeof voted === 'object' && (voted.status === 'device_block' || voted.status === 'visitor_match') && voted.data) {
       const d = voted.data;
-      
+
       // Local veri yoksa veya DB ile uyusmuyorsa guncelle
       let needsUpdate = false;
       if (!data) {
