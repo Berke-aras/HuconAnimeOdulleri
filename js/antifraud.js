@@ -15,6 +15,17 @@ const AntifraudManager = (() => {
 
   const MIN_VOTING_DURATION_MS = 15000;
   let _votingStartedAt = 0;
+  let _warmupReady = false;
+
+  // Caching mechanism for performance on low-end devices
+  const _cache = {
+    visitorId: null,
+    ipHash: null,
+    hardwareHashes: null,
+    hardwareSignature: null,
+    deviceId: null,
+    warmupPromise: null
+  };
 
   async function sha256(message) {
     if (!message) return "empty";
@@ -36,6 +47,7 @@ const AntifraudManager = (() => {
   }
 
   async function getIPHash() {
+    if (_cache.ipHash) return _cache.ipHash;
     const providers = [
       "https://1.1.1.1/cdn-cgi/trace",
       "https://cloudflare.com/cdn-cgi/trace",
@@ -53,13 +65,17 @@ const AntifraudManager = (() => {
           const match = text.match(/ip=([0-9a-f.:]+)/);
           if (match) ip = match[1];
         }
-        if (ip) return await sha256(ip + "anime_vote_salt_2026");
+        if (ip) {
+          _cache.ipHash = await sha256(ip + "anime_vote_salt_2026");
+          return _cache.ipHash;
+        }
       } catch (e) {}
     }
     
     // Tüm IP servisleri blokluysa (AdGuard vb. çok katıysa)
     console.warn("Ag kontrolü engellendi. Ag imzasi olmadan devam ediliyor.");
-    return "blocked_network";
+    _cache.ipHash = "blocked_network";
+    return _cache.ipHash;
   }
 
   // --- Parmak Izi ---
@@ -92,6 +108,8 @@ const AntifraudManager = (() => {
   }
 
   async function getVisitorId() {
+    if (_cache.visitorId) return _cache.visitorId;
+
     let baseFp = "";
     try {
       if (typeof FingerprintJS !== "undefined") {
@@ -116,14 +134,16 @@ const AntifraudManager = (() => {
 
     const sigData = signals.map(s => s.status === 'fulfilled' ? s.value : 'err');
     const combinedRaw = baseFp + "|" + sigData.join("|");
-    return await sha256(combinedRaw);
+    _cache.visitorId = await sha256(combinedRaw);
+    return _cache.visitorId;
   }
 
   // --- Ileri Seviye Donanim Parmak Izleri ---
 
   async function getAdvancedWebGLFingerprint() {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("WebGL dogrulamasi zaman asimina ugradi.")), 3000);
+      // Arka planda calistigi icin 30 saniyelik genis bir zaman taniyoruz
+      const timeout = setTimeout(() => resolve("webgl-timeout"), 30000);
       try {
         const canvas = document.createElement("canvas");
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -230,8 +250,8 @@ const AntifraudManager = (() => {
 
   async function getAudioContextFingerprint() {
     return new Promise((resolve, reject) => {
-      // Yavas mobil cihazlari da goz onunde bulundurarak 3000ms timeout
-      const timeout = setTimeout(() => reject(new Error("Ses dogrulamasi zaman asimina ugradi.")), 3000);
+      // Arka planda calistigi icin 12 saniyelik genis bir zaman taniyoruz
+      const timeout = setTimeout(() => resolve("audio-timeout"), 12000);
 
       try {
         const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -454,34 +474,40 @@ const AntifraudManager = (() => {
   // Cihaz-seviyesi parmak izi: tarayicidan BAGIMSIZ sinyaller
   // Ayni cihazdaki farkli tarayicilarda ayni hash'i uretmesi hedeflenir
   async function generateHardwareHashes() {
-    const audioRaw = await getAudioContextFingerprint();
-    const fontRaw = getFontFingerprint();
-    const voicesRaw = await getSpeechVoicesFingerprint();
-    const webrtcRaw = await getWebRTCIP();
-    const webglHardware = getWebGLFingerprint();
-    const webglAdvanced = await getAdvancedWebGLFingerprint();
-    const canvasRaw = getCanvasFingerprint();
+    if (_cache.hardwareHashes) return _cache.hardwareHashes;
 
-    const audioHash = await sha256(audioRaw);
-    const fontHash = await sha256(fontRaw);
-    const voicesHash = await sha256(voicesRaw);
-    const localIpHash = await sha256(webrtcRaw);
-    const canvasHash = await sha256(canvasRaw);
-    
-    // WebGL icin hem ham donanim bilgisini hem de shader hesaplama sonucunu kullaniyoruz
-    const webglHash = await sha256(webglHardware + "|||" + webglAdvanced);
+    const [audioRaw, fontRaw, voicesRaw, webrtcRaw, webglHardware, webglAdvanced, canvasRaw] = await Promise.all([
+      getAudioContextFingerprint(),
+      getFontFingerprint(),
+      getSpeechVoicesFingerprint(),
+      getWebRTCIP(),
+      getWebGLFingerprint(),
+      getAdvancedWebGLFingerprint(),
+      getCanvasFingerprint()
+    ]);
 
-    // Kaba ekran/donanim profili (False positive engellemek icin ek sigorta)
+    const [audioHash, fontHash, voicesHash, localIpHash, canvasHash, hardwareHashBase] = await Promise.all([
+      sha256(audioRaw),
+      sha256(fontRaw),
+      sha256(voicesRaw),
+      sha256(webrtcRaw),
+      sha256(canvasRaw),
+      sha256(webglHardware + "|||" + webglAdvanced)
+    ]);
+
+    // Kaba ekran/donanim profili + Islemci Tick (Clock Drift)
     const hardwareProfile = await sha256([
       screen.colorDepth || 24,
       navigator.hardwareConcurrency || 0,
       navigator.maxTouchPoints || 0,
       navigator.deviceMemory || 0,
+      getClockDrift(), // İslemci tick / zaman entropisi
       new Date().getTimezoneOffset(),
       Math.round(Math.max(screen.width, screen.height) / 100) * 100 + "x" + Math.round(Math.min(screen.width, screen.height) / 100) * 100
     ].join("|"));
 
-    return { audioHash, fontHash, voicesHash, localIpHash, webglHash, canvasHash, hardwareProfile };
+    _cache.hardwareHashes = { audioHash, fontHash, voicesHash, localIpHash, webglHash: hardwareHashBase, canvasHash, hardwareProfile };
+    return _cache.hardwareHashes;
   }
 
   async function generateHardwareSignature() {
@@ -577,34 +603,54 @@ const AntifraudManager = (() => {
     try {
       const idb = await openIDB();
       const tx = idb.transaction(IDB_STORE, "readwrite");
-      tx.objectStore(IDB_STORE).put({ id: _s[2], ts: Date.now() });
+      tx.objectStore(IDB_STORE).put({ id: "v", ts: Date.now() });
     } catch (e) { }
   }
-  async function getIDB() {
+
+  async function setIDBData(key, data) {
     try {
-      const idb = await openIDB();
-      return new Promise((resolve) => {
-        const tx = idb.transaction(IDB_STORE, "readonly");
-        const req = tx.objectStore(IDB_STORE).get(_s[2]);
-        req.onsuccess = () => resolve(req.result !== undefined);
-        req.onerror = () => resolve(false);
-      });
-    } catch (e) { return false; }
+      const db = await openIDB();
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put({ id: key, data: data, t: Date.now() });
+    } catch (e) { }
+  }
+
+  async function getIDBData(key) {
+    return new Promise(async (resolve) => {
+      try {
+        const db = await openIDB();
+        const tx = db.transaction(IDB_STORE, "readonly");
+        const req = tx.objectStore(IDB_STORE).get(key);
+        req.onsuccess = () => resolve(req.result ? req.result.data : null);
+        req.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    });
   }
 
   async function setCacheAPI() {
     try {
       if (!("caches" in window)) return;
       const cache = await caches.open(IDB_NAME);
-      await cache.put("/_vf", new Response(Date.now().toString()));
+      await cache.put("/_vf", new Response("1"));
     } catch (e) { }
   }
-  async function getCacheAPI() {
+
+  async function setCacheData(key, data) {
     try {
-      if (!("caches" in window)) return false;
+      if (!("caches" in window)) return;
       const cache = await caches.open(IDB_NAME);
-      return (await cache.match("/_vf")) !== undefined;
-    } catch (e) { return false; }
+      await cache.put("/" + key, new Response(JSON.stringify(data)));
+    } catch (e) { }
+  }
+
+  async function getCacheData(key) {
+    try {
+      if (!("caches" in window)) return null;
+      const cache = await caches.open(IDB_NAME);
+      const res = await cache.match("/" + key);
+      if (res) return await res.json();
+    } catch (e) { }
+    return null;
   }
 
   function setWindowName() {
@@ -652,7 +698,7 @@ const AntifraudManager = (() => {
       .where("audioHash", "==", hashes.audioHash || "none")
       .where("webglHash", "==", hashes.webglHash || "none")
       .where("fontHash", "==", hashes.fontHash || "none")
-      .limit(10)
+      .limit(1000)
       .get();
     
     hardwareQuery.docs.forEach(doc => {
@@ -671,7 +717,7 @@ const AntifraudManager = (() => {
     // 3. Senaryo B: IP üzerinden sorgula (Donanimlar farkli olsa da IP ayni olabilir)
     const ipQuery = await db.collection("votes")
       .where("ipHash", "==", ipHash || "none")
-      .limit(10)
+      .limit(1000)
       .get();
       
     ipQuery.docs.forEach(doc => {
@@ -800,6 +846,11 @@ const AntifraudManager = (() => {
       });
 
       clearRevoteMode(); // Başarılı gönderimden sonra bayrağı temizle
+      
+      // Kaydı anında yerel depolara yay
+      const accessToken = await generateAccessToken(visitorId, nextNumber);
+      storeVoteData(selections, nextNumber, accessToken);
+      
       return nextNumber;
     });
   }
@@ -815,6 +866,22 @@ const AntifraudManager = (() => {
     setWindowName();
   }
 
+  function setWindowName() {
+    try {
+      const parts = window.name ? window.name.split("|") : [];
+      if (!parts.includes(_k)) {
+        parts.push(_k);
+        window.name = parts.join("|");
+      }
+    } catch (e) { }
+  }
+
+  function getWindowName() {
+    try {
+      return window.name && window.name.split("|").includes(_k);
+    } catch (e) { return false; }
+  }
+
   function isRevoteMode() {
     try { return sessionStorage.getItem(_k + '_revote') === '1'; } catch (e) { return false; }
   }
@@ -828,54 +895,39 @@ const AntifraudManager = (() => {
   }
 
   async function hasAlreadyVoted() {
-    // Revote modundaysa yerel ve Firestore kontrollerini atla
-    if (isRevoteMode()) {
-      // Artık burada silmiyoruz, başarılı gönderimden sonra submitVote içinde siliyoruz.
-      return false;
-    }
+    if (isRevoteMode()) return false;
 
-    // 1. Yerel depo kontrolleri (Hizli)
+    // 1. Yerel kontrol (Bayraklar)
     const localFlag = getVotedLS() || getCookie() || getWindowName();
     
-    // 2. Tarayici bazli Firestore kontrolü (visitorId)
-    // Bu durumda HARD BLOCK uyguluyoruz çünkü tarayıcı kimliği tam eşleşiyor.
-    let visitorId = "";
-    try {
-      visitorId = await getVisitorId();
-    } catch (e) {
-      throw new Error("Kimlik dogrulama engellendi. Reklam engelleyicinizi (AdGuard vb.) kapatin.");
+    // 2. Tarayici bazli kontrol (visitorId)
+    const visitorId = await getVisitorId();
+    const firestoreData = await checkFirestore(visitorId);
+    
+    if (firestoreData) {
+      // Kimlik bulundu, yerel verileri guncelle
+      markAsVotedLocally();
+      const accessToken = await generateAccessToken(visitorId, firestoreData.cardNumber);
+      storeVoteData(firestoreData.selections, firestoreData.cardNumber, accessToken);
+      return { status: 'visitor_match', data: firestoreData };
     }
 
-    if (visitorId) {
-      const storedData = await checkFirestore(visitorId);
-      if (storedData) {
-        markAsVotedLocally();
-        return { status: 'visitor_match', data: storedData };
-      }
-    }
-
-    if (localFlag) return true; // Firestore'da yoksa ama localde varsa (belki henüz senkronize olmadı?)
-
-    // 3. Gizli sekme / Cross-browser / IP-Device Kontrolü (KESIN ENGELLEME)
-    // Revote modundaysa bu kontrolü de atlıyoruz
-    if (isRevoteMode()) {
-      return false;
-    }
-
+    // 3. Donanim bazli kontrol (Gizli sekme / Farkli tarayici)
     const deviceId = await generateDeviceFingerprint();
     const hardwareHashes = await generateHardwareHashes();
     const ipHash = await getIPHash();
     const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
     
     if (matchedData) {
+      // Donanim eslesmesi ile kimlik kurtarma
       markAsVotedLocally();
-      // VERİ GERİ ÇEKME (Recovery): 
-      // 7 sinyalden 3 tanesinin eşleşmesi (3/7) Safari ve diğer 
-      // agresif tarayıcı taktiklerini aşmak için en ideal seviyedir.
-      if (matchedData._matchCount >= 3) {
-        return { status: "device_block", data: matchedData };
-      }
+      const accessToken = await generateAccessToken(matchedData.visitorId, matchedData.cardNumber);
+      storeVoteData(matchedData.selections, matchedData.cardNumber, accessToken);
+      return { status: 'device_block', data: matchedData };
     }
+
+    // 4. Eger Firestore'da bulunamadiysa ama localde bayrak varsa
+    if (localFlag) return true;
 
     return false;
   }
@@ -947,6 +999,9 @@ const AntifraudManager = (() => {
 
   async function submitVote(selections) {
     try {
+      // Oylari gondermeden once arka plandaki tüm parmak izi toplama isleminin
+      // kesinlikle bittiginden emin ol (Güclü bir güvence)
+      await warmup();
       if (_votingStartedAt === 0) {
         throw new Error("Oylama oturumu baslatilmadi. Lutfen sayfayi yenileyip tekrar deneyin.");
       }
@@ -1012,19 +1067,42 @@ const AntifraudManager = (() => {
 
   function storeVoteData(selections, cardNumber, accessToken) {
     try {
-      const data = JSON.stringify({ selections, cardNumber, accessToken, ts: Date.now() });
-      setLS(SELECTIONS_KEY, data);
-      try { sessionStorage.setItem(SELECTIONS_KEY, data); } catch (e) { }
+      const data = { selections, cardNumber, accessToken, ts: Date.now() };
+      const raw = JSON.stringify(data);
+      setLS(SELECTIONS_KEY, raw);
+      try { sessionStorage.setItem(SELECTIONS_KEY, raw); } catch (e) { }
+      // window.name'e de yedekle
+      try {
+        const currentName = window.name || "";
+        if (!currentName.includes(SELECTIONS_KEY)) {
+          window.name = currentName + "|||" + SELECTIONS_KEY + ":" + btoa(raw);
+        }
+      } catch (e) { }
+      // async persist
+      setIDBData(SELECTIONS_KEY, data);
+      setCacheData(SELECTIONS_KEY, data);
     } catch (e) { }
   }
 
-  function getVoteData() {
+  async function getVoteData() {
     try {
       let raw = getLS(SELECTIONS_KEY);
       if (!raw) { try { raw = sessionStorage.getItem(SELECTIONS_KEY); } catch (e) { } }
-      if (!raw) return null;
+      if (!raw) {
+        // window.name'den kurtarmayo dene
+        try {
+          const nameData = window.name || "";
+          const match = nameData.match(new RegExp(SELECTIONS_KEY + ":([^|]+)"));
+          if (match && match[1]) raw = atob(match[1]);
+        } catch (e) { }
+      }
       
-      const data = JSON.parse(raw);
+      let data = raw ? JSON.parse(raw) : null;
+      
+      // Still no data? try deep storage
+      if (!data) data = await getIDBData(SELECTIONS_KEY);
+      if (!data) data = await getCacheData(SELECTIONS_KEY);
+
       // Şema doğrulaması (Schema validation)
       if (
         data &&
@@ -1072,6 +1150,30 @@ const AntifraudManager = (() => {
       window.name = parts.filter(p => p !== _k).join("|");
     } catch (e) { }
   }
+  async function warmup() {
+    if (_cache.warmupPromise) return _cache.warmupPromise;
+    
+    _cache.warmupPromise = (async () => {
+      console.log("AntifraudManager: Sinyaller toplaniyor...");
+      try {
+        await Promise.allSettled([
+          getVisitorId(),
+          generateHardwareHashes(),
+          generateDeviceFingerprint(),
+          getIPHash()
+        ]);
+        _warmupReady = true;
+        console.log("AntifraudManager: Sinyaller hazir.");
+      } catch (e) {
+        console.warn("AntifraudManager: Bazi sinyaller toplanamadi:", e);
+      }
+    })();
+    
+    return _cache.warmupPromise;
+  }
+
+  // Hemen baslat
+  warmup();
 
   return {
     getVisitorId,
@@ -1088,6 +1190,8 @@ const AntifraudManager = (() => {
     sha256,
     getIPHash,
     generateHardwareSignature,
+    warmup,
+    isWarmupReady: () => _warmupReady,
     SELECTIONS_KEY
   };
 })();

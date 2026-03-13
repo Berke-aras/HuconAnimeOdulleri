@@ -27,31 +27,7 @@ const COLORS = {
 
 let _cardCanvas = null;
 
-function getVoteData() {
-  const _k = btoa("animeoy").slice(0, 6);
-  const key = _k + "_sel";
-  try {
-    let raw = localStorage.getItem(key);
-    if (!raw) {
-      try { raw = sessionStorage.getItem(key); } catch (e) {}
-    }
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (
-      data &&
-      typeof data === 'object' &&
-      typeof data.cardNumber === 'number' &&
-      typeof data.accessToken === 'string' &&
-      data.selections &&
-      typeof data.selections === 'object'
-    ) {
-      return data;
-    }
-    return null;
-  } catch (e) {
-    return null;
-  }
-}
+// Redundant getVoteData removed. Using AntifraudManager.getVoteData() instead.
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -559,9 +535,8 @@ function showShareToast(message) {
 
 let _voteData = null;
 
-(async function init() {
-  let localData = getVoteData();
-  let data = localData;
+async function init() {
+  let data = await AntifraudManager.getVoteData();
   
   // Veri dogrulama ve kurtarma (Tamper Protection)
   try {
@@ -569,15 +544,15 @@ let _voteData = null;
     if (typeof voted === 'object' && (voted.status === 'device_block' || voted.status === 'visitor_match') && voted.data) {
       const d = voted.data;
       
-      // Local veri varsa, DB ile karsilastir (Tamper Check)
+      // Local veri yoksa veya DB ile uyusmuyorsa guncelle
       let needsUpdate = false;
-      if (!localData) {
+      if (!data) {
         needsUpdate = true;
       } else {
-        const localSels = JSON.stringify(localData.selections || {});
+        const localSels = JSON.stringify(data.selections || {});
         const dbSels = JSON.stringify(d.selections || {});
-        if (localSels !== dbSels || localData.cardNumber !== d.cardNumber) {
-          console.warn("Yerel veri uyusmazligi tespit edildi (Tampering?). DB verileri kullaniliyor.");
+        if (localSels !== dbSels || data.cardNumber !== d.cardNumber) {
+          console.warn("Yerel veri uyusmazligi tespit edildi. DB verileri kullaniliyor.");
           needsUpdate = true;
         }
       }
@@ -607,4 +582,5 @@ let _voteData = null;
   if (navigator.share) {
     document.getElementById('shareNativeBtn').style.display = 'inline-flex';
   }
-})();
+}
+init();

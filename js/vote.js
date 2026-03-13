@@ -102,29 +102,58 @@ async function revote() {
   window.location.reload();
 }
 
-(async function init() {
-  try {
-    const voted = await AntifraudManager.hasAlreadyVoted();
-    document.getElementById('loadingOverlay').classList.add('hidden');
+// Antifraud warmup işlemini hemen başlat (arka planda çalışsın)
+if (typeof AntifraudManager !== 'undefined') {
+  AntifraudManager.warmup();
+}
 
-    if (voted) {
-      if (typeof voted === 'object' && (voted.status === 'device_block' || voted.status === 'visitor_match') && voted.data) {
-        // Donanim eslesmesi ile kimlik kurtarma (Gizli sekme/Farkli tarayici)
+(async function init() {
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const errorSection = document.getElementById('errorSection');
+  const alreadyVotedSection = document.getElementById('alreadyVotedSection');
+  const voteSection = document.getElementById('voteSection');
+
+  try {
+    // 1. Hızlı Yerel Kontrol (Derin depo kontrolü dahil)
+    const localData = await AntifraudManager.getVoteData();
+    const hasVotedFlag = document.cookie.includes('animeoy_v');
+
+    if (localData || hasVotedFlag) {
+      loadingOverlay.classList.add('hidden');
+      alreadyVotedSection.classList.remove('hidden');
+      return;
+    }
+
+    // 2. Tam Kontrol (Arka plan sinyallerini bekle)
+    const votedPromise = AntifraudManager.hasAlreadyVoted();
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 6000));
+    
+    const voted = await Promise.race([votedPromise, timeoutPromise]);
+    
+    loadingOverlay.classList.add('hidden');
+
+    if (voted === 'timeout') {
+      console.warn("Antifraud: Zaman aşımı, devam ediliyor.");
+    } else if (voted) {
+      // Eğer bir obje döndüyse, kurtarılmış veri var demektir
+      if (typeof voted === 'object' && voted.data) {
         const d = voted.data;
         const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
         AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
       }
-      document.getElementById('alreadyVotedSection').classList.remove('hidden');
+      alreadyVotedSection.classList.remove('hidden');
       return;
     }
 
+    // Oylama Oturumunu Başlat
     AntifraudManager.markVotingStarted();
-    document.getElementById('voteSection').classList.remove('hidden');
+    voteSection.classList.remove('hidden');
     buildPillNav();
     renderCategory(false);
   } catch (e) {
-    document.getElementById('loadingOverlay').classList.add('hidden');
-    document.getElementById('errorSection').classList.remove('hidden');
+    console.error("Init Error:", e);
+    loadingOverlay.classList.add('hidden');
+    errorSection.classList.remove('hidden');
   }
 })();
 
@@ -398,7 +427,17 @@ async function submitVotes() {
   }
 
   submitBtn.disabled = true;
-  document.getElementById('submitOverlay').classList.remove('hidden');
+  const overlay = document.getElementById('submitOverlay');
+  const loadingText = overlay.querySelector('.loading-text');
+  
+  // Eğer arka plan veri toplama henüz bitmediyse kullanıcıya özel mesaj göster
+  if (typeof AntifraudManager !== 'undefined' && AntifraudManager.isWarmupReady && !AntifraudManager.isWarmupReady()) {
+    loadingText.textContent = "Oylarınız işleniyor (Güvenlik verileri toplanıyor)...";
+  } else {
+    loadingText.textContent = "Oylarınız gönderiliyor...";
+  }
+
+  overlay.classList.remove('hidden');
 
   try {
     const result = await AntifraudManager.submitVote(selections);

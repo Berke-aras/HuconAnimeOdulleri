@@ -119,7 +119,14 @@
       try {
         const voted = await AntifraudManager.hasAlreadyVoted();
         document.getElementById('loadingOverlay').classList.add('hidden');
+        
         if (voted) {
+          // Eger veri kurtarildiysa (Gizli sekme veya silinmis veri), ekstra koruma sagla
+          if (typeof voted === 'object' && voted.data) {
+            const d = voted.data;
+            const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
+            AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
+          }
           document.getElementById('alreadyVoted').classList.remove('hidden');
         } else {
           document.getElementById('heroSection').classList.remove('hidden');
