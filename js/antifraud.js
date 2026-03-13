@@ -669,8 +669,17 @@ const AntifraudManager = (() => {
   // --- Firestore ---
 
   async function checkFirestore(visitorId) {
-    const doc = await db.collection("votes").doc(visitorId).get();
-    return doc.exists ? { id: doc.id, ...doc.data() } : null;
+    try {
+      const doc = await db.collection("votes").doc(visitorId).get();
+      return doc.exists ? { id: doc.id, ...doc.data() } : null;
+    } catch (e) {
+      console.error("Firestore Check Error:", e);
+      // Eğer AdGuard vb. tarafından engellenmişse hatayı yukarı fırlat ki kullanıcıya bilgi verebilelim
+      if (e.message.includes('access control checks') || e.code === 'unavailable' || !navigator.onLine) {
+        throw new Error("Baglanti engellendi! Reklam engelleyicinizi (AdGuard vb.) devre dışı bırakıp tekrar deneyin.");
+      }
+      return null;
+    }
   }
 
   async function checkDeviceInFirestore(deviceId, ipHash, hashes) {
@@ -682,61 +691,66 @@ const AntifraudManager = (() => {
     if (!hashes.audioHash || !hashes.webglHash || !hashes.fontHash) return null;
 
     // 1. Kesin DeviceId esleşmesi (Aynı tarayıcı)
-    const exactQuery = await db.collection("votes")
-      .where("deviceId", "==", deviceId || "none")
-      .where("ipHash", "==", ipHash || "none")
-      .limit(1)
-      .get();
-    
-    if (!exactQuery.empty) return { id: exactQuery.docs[0].id, ...exactQuery.docs[0].data() };
+    try {
+      const exactQuery = await db.collection("votes")
+        .where("deviceId", "==", deviceId || "none")
+        .where("ipHash", "==", ipHash || "none")
+        .limit(1)
+        .get();
+      
+      if (!exactQuery.empty) return { id: exactQuery.docs[0].id, ...exactQuery.docs[0].data() };
+    } catch (e) { console.warn("Exact match query failed:", e); }
 
     // --- Aday Havuzu (Potansiyel eslesmeleri toplayip en iyisini sececegiz) ---
     let candidates = [];
 
     // 2. Senaryo A: Donanım Kalemlerinden (Audio, WebGL, Font) sorgula
-    const hardwareQuery = await db.collection("votes")
-      .where("audioHash", "==", hashes.audioHash || "none")
-      .where("webglHash", "==", hashes.webglHash || "none")
-      .where("fontHash", "==", hashes.fontHash || "none")
-      .limit(1000)
-      .get();
-    
-    hardwareQuery.docs.forEach(doc => {
-      const v = doc.data();
-      let matchCount = (v.ipHash === ipHash) ? 1 : 0;
-      matchCount += 3; // Audio, WebGL, Font zaten eslesti
-      if (v.canvasHash === hashes.canvasHash) matchCount++;
-      if (v.voicesHash === hashes.voicesHash) matchCount++;
-      if (v.localIpHash === hashes.localIpHash) matchCount++;
+    try {
+      const hardwareQuery = await db.collection("votes")
+        .where("audioHash", "==", hashes.audioHash || "none")
+        .where("webglHash", "==", hashes.webglHash || "none")
+        .where("fontHash", "==", hashes.fontHash || "none")
+        .limit(100)
+        .get();
+      
+      hardwareQuery.docs.forEach(doc => {
+        const v = doc.data();
+        let matchCount = (v.ipHash === ipHash) ? 1 : 0;
+        matchCount += 3; // Audio, WebGL, Font zaten eslesti
+        if (v.canvasHash === hashes.canvasHash) matchCount++;
+        if (v.voicesHash === hashes.voicesHash) matchCount++;
+        if (v.localIpHash === hashes.localIpHash) matchCount++;
 
-      if (matchCount >= 3) {
-        candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
-      }
-    });
+        if (matchCount >= 3) {
+          candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
+        }
+      });
+    } catch (e) { console.warn("Hardware match query failed:", e); }
 
     // 3. Senaryo B: IP üzerinden sorgula (Donanimlar farkli olsa da IP ayni olabilir)
-    const ipQuery = await db.collection("votes")
-      .where("ipHash", "==", ipHash || "none")
-      .limit(1000)
-      .get();
-      
-    ipQuery.docs.forEach(doc => {
-      // Zaten donanim sorgusunda bulduysak tekrar ekleme (De-duplication)
-      if (candidates.some(c => c.id === doc.id)) return;
+    try {
+      const ipQuery = await db.collection("votes")
+        .where("ipHash", "==", ipHash || "none")
+        .limit(100)
+        .get();
+        
+      ipQuery.docs.forEach(doc => {
+        if (candidates.some(c => c.id === doc.id)) return;
 
-      const v = doc.data();
-      let matchCount = 1; // IP eslesiyor
-      if (v.audioHash === hashes.audioHash) matchCount++;
-      if (v.webglHash === hashes.webglHash) matchCount++;
-      if (v.fontHash === hashes.fontHash) matchCount++;
-      if (v.canvasHash === hashes.canvasHash) matchCount++;
-      if (v.voicesHash === hashes.voicesHash) matchCount++;
-      if (v.localIpHash === hashes.localIpHash) matchCount++;
+        const v = doc.data();
+        let matchCount = 1; // IP eslesiyor
+        if (v.audioHash === hashes.audioHash) matchCount++;
+        if (v.webglHash === hashes.webglHash) matchCount++;
+        if (v.fontHash === hashes.fontHash) matchCount++;
+        if (v.canvasHash === hashes.canvasHash) matchCount++;
+        if (v.voicesHash === hashes.voicesHash) matchCount++;
+        if (v.localIpHash === hashes.localIpHash) matchCount++;
 
-      if (matchCount >= 3) {
-        candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
-      }
-    });
+        if (matchCount >= 3) {
+          candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
+        }
+      });
+    } catch (e) { console.warn("IP match query failed:", e); }
 
     // --- EN IYI ADAYI SEC (Weighted Best Candidate Selection) ---
     const targetDrift = parseFloat(getClockDrift()) || 0;

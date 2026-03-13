@@ -158,6 +158,23 @@ if (typeof AntifraudManager !== 'undefined') {
   } catch (e) {
     console.error("Init Error:", e);
     loadingOverlay.classList.add('hidden');
+    
+    if (e.message.includes('engellendi') || e.message.includes('AdGuard')) {
+      errorSection.innerHTML = `
+        <div class="alert alert-error">
+          <h2 style="font-size: 1.4rem; margin-bottom: 12px;">Bağlantı Engellendi!</h2>
+          <p style="margin-bottom: 16px;">Sistemimiz güvenliğiniz için gereken bazı servisleri (Firestore, Turnstile vb.) yükleyemedi. Muhtemelen <strong>AdGuard</strong> veya benzeri bir reklam engelleyici bu bağlantıları engelliyor.</p>
+          <div style="text-align: left; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 20px;">
+            <strong>Çözüm:</strong>
+            <ul style="margin-top: 8px; padding-left: 20px;">
+              <li>Reklam engelleyicinizi (AdGuard, uBlock vb.) bu site için devre dışı bırakın.</li>
+              <li>Sayfayı yenileyerek tekrar deneyin.</li>
+            </ul>
+          </div>
+          <button onclick="window.location.reload()" class="btn btn-primary">Tekrar Dene</button>
+        </div>
+      `;
+    }
     errorSection.classList.remove('hidden');
   }
 })();
@@ -233,6 +250,7 @@ function populateGrid(cat, grid) {
   grid.style.setProperty('--card-w', cardW + 'px');
 
   cat.candidates.forEach((candidate, idx) => {
+    const card = document.createElement('div');
     card.className = 'candidate-card';
     card.style.animation = `fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 0.03}s forwards`;
     card.style.opacity = '0';
