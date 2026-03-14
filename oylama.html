@@ -39,7 +39,21 @@
     </div>
   </div>
 
-  <!-- Zaten oy verilmis -->
+    <!-- Sistem Yoğun Mesajı -->
+    <div id="systemBusySection" class="result-card hidden">
+      <div class="result-icon error">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <h1 style="color: var(--text-header); font-size: 1.8rem; margin-bottom: 1rem;">Sistem Şu An Çok Yoğun</h1>
+      <p style="color: var(--text-secondary); margin-bottom: 2rem;">Aynı anda çok fazla kişi oy vermeye çalışıyor. Lütfen 30 saniye sonra sayfayı yenileyip tekrar deneyin.</p>
+      <button onclick="location.reload()" class="btn-primary" style="width: 100%;">
+        Yenile
+      </button>
+    </div>
+
+    <!-- Oylama Zaten Yapıldı (Recovery) -->
   <div id="alreadyVotedSection" class="hero hidden">
     <!-- Bu kısım generic 'zaten oy verilmiş' durumları için kalacak -->
     <div class="hero-content">

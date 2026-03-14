@@ -167,9 +167,20 @@ if (typeof AntifraudManager !== 'undefined') {
     }
 
   } catch (e) {
-    console.error("Lazy Init Check failed (likely Adblock):", e);
+    console.error("Lazy Init Check failed:", e);
     loadingOverlay.classList.add('hidden');
-    // Eğer Firestore kilitliyse bile oylama ekranını açalım (Graceful Degradation)
+
+    const code = e.code || "";
+    const msg = e.message || "";
+
+    // Firebase kota veya bağlantı sınırı hatası
+    if (code === 'resource-exhausted' || code === 'unavailable' || msg.includes('quota') || msg.includes('limit')) {
+      document.getElementById('systemBusySection').classList.remove('hidden');
+      voteSection.classList.add('hidden');
+      return;
+    }
+
+    // Eğer Firestore kilitliyse bile (Adblock vb.) oylama ekranını açalım
     voteSection.classList.remove('hidden');
   }
 })();
