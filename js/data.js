@@ -118,7 +118,7 @@ const CATEGORIES = [
   },
   {
     id: "en-prestijli-yilin-basliklari-en-iyi-orijinal-anime",
-    title: "En İyi Orijinal Anime",
+    title: "En İyi Orijinal Animesi",
     icon: "star",
     candidates: [
       { id: "bucchigiri", name: "BUCCHIGIRI?!", anime: "BUCCHIGIRI?!", image: null },
@@ -135,7 +135,7 @@ const CATEGORIES = [
   /* Karakter Odaklı Başlıklar */
   {
     id: "karakter-odakli-en-iyi-ana-karakter",
-    title: "En İyi Ana Karakter",
+    title: "Yılın En İyi Ana Karakteri",
     icon: "star",
     candidates: [
       { id: "sung-jinwoo-solo-leveling", name: "Sung Jinwoo (Solo Leveling)", anime: "Solo Leveling", image: null },
@@ -154,7 +154,7 @@ const CATEGORIES = [
   },
   {
     id: "karakter-odakli-en-iyi-yardimci-karakter",
-    title: "En İyi Yardımcı Karakter",
+    title: "Yılın En İyi Yardımcı Karakteri",
     icon: "star",
     candidates: [
       { id: "jinshi-the-apothecary-diaries", name: "Jinshi (The Apothecary Diaries)", anime: "The Apothecary Diaries", image: null },
@@ -173,7 +173,7 @@ const CATEGORIES = [
   },
   {
     id: "karakter-odakli-en-iyi-antagonist",
-    title: "En İyi Antagonist",
+    title: "Yılın En İyi Antagonisti",
     icon: "star",
     candidates: [
       { id: "kei-uzuki-sakamoto-days", name: "Kei Uzuki (Sakamoto Days)", anime: "Sakamoto Days", image: null },
@@ -190,7 +190,7 @@ const CATEGORIES = [
   },
   {
     id: "karakter-odakli-yilin-cifti",
-    title: "Yılın Çifti",
+    title: "Yılın En İyi Çifti",
     icon: "star",
     candidates: [
       { id: "denji-reze-chainsaw-man-reze-arc", name: "Denji x Reze (Chainsaw Man: Reze Arc)", anime: "Chainsaw Man: Reze Arc", image: null },
@@ -209,7 +209,7 @@ const CATEGORIES = [
   },
   {
     id: "karakter-odakli-en-iyi-karakter-dizayni",
-    title: "En İyi Karakter Dizaynı",
+    title: "Yılın En İyi Karakter Dizaynı",
     icon: "star",
     candidates: [
       { id: "dandadan", name: "Dandadan", anime: "Dandadan", image: null },
@@ -228,7 +228,7 @@ const CATEGORIES = [
   /* Görsel ve İşitsel Başlıklar */
   {
     id: "gorsel-isitsel-en-iyi-animasyon",
-    title: "En İyi Animasyon",
+    title: "Yılın En İyi Animasyonu",
     icon: "star",
     candidates: [
       { id: "demon-slayer-series-ufotable", name: "Demon Slayer (Ufotable)", anime: "Demon Slayer", image: null },
@@ -243,7 +243,7 @@ const CATEGORIES = [
   },
   {
     id: "gorsel-isitsel-en-iyi-acilis-op",
-    title: "En İyi Açılış Sekansı (OP)",
+    title: "Yılın En İyi Açılış Sekansı (OP)",
     icon: "star",
     candidates: [
       { id: "kaiju-no-8-aurora", name: "Kaiju No. 8 — \"AURORA / You Can't Run From Yourself\"", anime: "Kaiju No. 8", image: null },
@@ -260,7 +260,7 @@ const CATEGORIES = [
   },
   {
     id: "gorsel-isitsel-en-iyi-ending",
-    title: "En İyi Ending",
+    title: "Yılın En İyi Bitiş Sekansı (ED)",
     icon: "star",
     candidates: [
       { id: "my-hero-academia-final-season-i", name: "My Hero Academia FINAL SEASON — “I” by BUMP OF CHICKEN", anime: "My Hero Academia FINAL SEASON", image: null },
@@ -277,12 +277,11 @@ const CATEGORIES = [
   },
   {
     id: "gorsel-isitsel-en-iyi-dunya-tasarimi",
-    title: "En İyi Dünya Tasarımı",
+    title: "Yılın En İyi Dünya Tasarımı",
     icon: "star",
     candidates: [
       { id: "gachiakuta", name: "Gachiakuta", anime: "Gachiakuta", image: null },
       { id: "kowloon-generic-romance", name: "Kowloon Generic Romance", anime: "Kowloon Generic Romance", image: null },
-      { id: "apocalypse-h", name: "Apocalypse H", anime: "Apocalypse H", image: null },
       { id: "zenshu-ot", name: "Zenshuu.", anime: "Zenshuu.", image: null },
       { id: "mobile-suit-gundam-gquuuuuu-x", name: "Mobile Suit Gundam GQuuuuuuX", anime: "Mobile Suit Gundam GQuuuuuuX", image: null },
       { id: "moonrise", name: "Moonrise", anime: "Moonrise", image: null },
@@ -296,7 +295,7 @@ const CATEGORIES = [
   /* Tür Bazlı */
   {
     id: "tur-bazli-en-iyi-aksiyon",
-    title: "En İyi Aksiyon",
+    title: "Yılın En İyi Aksiyon Animesi",
     icon: "star",
     candidates: [
       { id: "fire-force-season-3", name: "Fire Force Season 3", anime: "Fire Force Season 3", image: null },
@@ -312,7 +311,7 @@ const CATEGORIES = [
   },
   {
     id: "tur-bazli-en-iyi-romantik",
-    title: "En İyi Romantik",
+    title: "Yılın En İyi Romantik Animesi",
     icon: "star",
     candidates: [
       { id: "honey-lemon-soda", name: "Honey Lemon Soda", anime: "Honey Lemon Soda", image: null },
@@ -327,7 +326,7 @@ const CATEGORIES = [
   },
   {
     id: "tur-bazli-en-iyi-komedi",
-    title: "En İyi Komedi",
+    title: "Yılın En İyi Komedi Animesi",
     icon: "star",
     candidates: [
       { id: "witch-watch", name: "Witch Watch", anime: "Witch Watch", image: null },
@@ -339,7 +338,7 @@ const CATEGORIES = [
   },
   {
     id: "tur-bazli-en-iyi-slice-of-life",
-    title: "En İyi Slice of Life",
+    title: "Yılın En İyi Slice of Life Animesi",
     icon: "star",
     candidates: [
       { id: "catch-me-at-the-ballpark", name: "Catch Me at the Ballpark!", anime: "Catch Me at the Ballpark!", image: null },
@@ -354,7 +353,7 @@ const CATEGORIES = [
   },
   {
     id: "tur-bazli-en-iyi-drama",
-    title: "En İyi Drama",
+    title: "Yılın En İyi Drama Animesi",
     icon: "star",
     candidates: [
       { id: "this-monster-wants-to-eat-me", name: "This Monster Wants to Eat Me", anime: "This Monster Wants to Eat Me", image: null },
@@ -369,7 +368,7 @@ const CATEGORIES = [
   },
   {
     id: "tur-bazli-best-isekai-anime",
-    title: "Best Isekai Anime",
+    title: "Yılın En İyi Isekai Animesi",
     icon: "star",
     candidates: [
       { id: "welcome-to-japan-ms-elf", name: "Welcome to Japan, Ms. Elf!", anime: "Welcome to Japan, Ms. Elf!", image: null },
@@ -384,7 +383,7 @@ const CATEGORIES = [
   },
   {
     id: "tur-bazli-must-protect-at-all-costs",
-    title: "\"Must Protect At All Costs\" (isim TBD)",
+    title: "Yılın En İyi \"Must Protect At All Costs\" Karakteri",
     icon: "star",
     candidates: [
       { id: "anya-forger-spy-family-season-2", name: "Anya Forger (SPY×FAMILY Season 2)", anime: "SPY×FAMILY Season 2", image: null },

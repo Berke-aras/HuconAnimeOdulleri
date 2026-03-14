@@ -83,8 +83,7 @@ function updatePillNav() {
     pill.classList.toggle('active', i === currentCategoryIndex);
     pill.classList.toggle('completed', !!selections[CATEGORIES[i].id] && i !== currentCategoryIndex);
   });
-  const activePill = document.querySelector('.pill-btn.active');
-  if (activePill) activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  /* Automatic scroll removed: activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); */
 }
 
 function jumpToCategory(index) {
@@ -94,7 +93,7 @@ function jumpToCategory(index) {
 }
 
 async function revote() {
-  if (!confirm('Oylarinizi sifirlamak ve tekrar oy vermek istediginize emin misiniz?')) return;
+  if (!confirm('Oylarınızı sıfırlamak ve tekrar oy vermek istediğinize emin misiniz?')) return;
   try {
     await AntifraudManager.clearLocalVoteData();
     AntifraudManager.enableRevoteMode();
@@ -280,37 +279,21 @@ function populateGrid(cat, grid) {
       </div>
     `;
 
-    // Resim yukleme (Asenkron)
-    AniListService.resolveCandidateImage(candidate, cat.id).then(imageUrl => {
-      const img = card.querySelector('.candidate-image');
-      const placeholder = card.querySelector('.candidate-image-placeholder');
-      const wrapper = card.querySelector('.candidate-image-wrapper');
-      
-      if (imageUrl) {
-        if (Array.isArray(imageUrl) && imageUrl.length > 1) {
-          // Ciftler icin iki resim goster
-          wrapper.innerHTML = '';
-          imageUrl.forEach((url, index) => {
-            const sideImg = document.createElement('img');
-            sideImg.className = 'candidate-image';
-            sideImg.src = url;
-            sideImg.style.cssText = `width:50%; height:100%; object-fit:cover; transition: opacity 0.5s ease; ${index === 0 ? 'border-right:1px solid rgba(255,255,255,0.1)' : ''}`;
-            wrapper.appendChild(sideImg);
-          });
-          placeholder.style.display = 'none';
-        } else {
-          // Tek resim
-          const finalUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
-          img.src = finalUrl;
-          img.onload = () => {
-            img.style.opacity = '1';
-            placeholder.style.display = 'none';
-          };
-        }
-      } else {
-        img.onerror(); // Trigger the onerror for the original img element if no URL is resolved
-      }
-    });
+    // Resim yukleme (Asenkron & Lazy Loading)
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            loadCandidateImage(card, candidate, cat.id);
+            observer.unobserve(card);
+          }
+        });
+      }, { rootMargin: '100px' });
+      observer.observe(card);
+    } else {
+      // Fallback for older browsers
+      loadCandidateImage(card, candidate, cat.id);
+    }
 
     card.addEventListener('click', () => selectCandidate(cat.id, candidate.id, card));
     grid.appendChild(card);
@@ -326,6 +309,51 @@ function populateGrid(cat, grid) {
   }
 }
 
+/**
+ * Modern asenkron resim yükleme ve UI güncelleme mantığı
+ */
+async function loadCandidateImage(card, candidate, categoryId) {
+  const imageUrl = await AniListService.resolveCandidateImage(candidate, categoryId);
+  const img = card.querySelector('.candidate-image');
+  const placeholder = card.querySelector('.candidate-image-placeholder');
+  const wrapper = card.querySelector('.candidate-image-wrapper');
+  
+  if (!imageUrl) {
+    if (img) img.onerror();
+    return;
+  }
+
+  if (Array.isArray(imageUrl) && imageUrl.length > 1) {
+    // Çiftler için iki resim göster
+    wrapper.innerHTML = '';
+    const promises = imageUrl.map((url, index) => {
+      return new Promise(resolve => {
+        const sideImg = document.createElement('img');
+        sideImg.className = 'candidate-image';
+        sideImg.src = url;
+        sideImg.style.cssText = `width:50%; height:100%; object-fit:cover; transition: opacity 0.5s ease; opacity: 0; ${index === 0 ? 'border-right:1px solid rgba(255,255,255,0.1)' : ''}`;
+        sideImg.onload = () => {
+          sideImg.style.opacity = '1';
+          resolve();
+        };
+        wrapper.appendChild(sideImg);
+      });
+    });
+    await Promise.all(promises);
+    placeholder.style.display = 'none';
+  } else {
+    // Tek resim
+    const finalUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
+    img.src = finalUrl;
+    img.onload = () => {
+      img.style.opacity = '1';
+      placeholder.style.display = 'none';
+      // Fade-in effect for the whole wrapper if needed
+      wrapper.style.backgroundColor = 'transparent';
+    };
+  }
+}
+
 function selectCandidate(categoryId, candidateId, cardElement) {
   selections[categoryId] = candidateId;
   document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
@@ -333,35 +361,8 @@ function selectCandidate(categoryId, candidateId, cardElement) {
   updateNextButton();
   updatePillNav();
 
-  setTimeout(() => {
-    const btn = document.getElementById('nextBtn');
-    if (!btn) return;
-
-    const isMobile = isTouchDevice();
-
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-    // Mobilde her secimde butona kaydir (kullanim kolayligi icin)
-    if (isMobile) {
-      const rect = btn.getBoundingClientRect();
-      const isVisible = rect.top >= 0 && rect.bottom <= vh;
-      if (!isVisible) {
-        btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return;
-    }
-
-    // PC'de her kategoride sadece ilk secimde ve buton ekranda asagi tarafta ise kaydir
-    if (scrolledForCategory[categoryId]) return;
-
-    const rect = btn.getBoundingClientRect();
-    const isOffScreen = rect.bottom > vh || rect.top < 0;
-
-    if (isOffScreen) {
-      btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    scrolledForCategory[categoryId] = true;
-  }, 300);
+  updateNextButton();
+  updatePillNav();
 }
 
 function updateNextButton() {
@@ -476,7 +477,7 @@ async function submitVotes() {
       recaptchaContainer.style.outline = '2px solid #ef4444';
       recaptchaContainer.style.outlineOffset = '4px';
       recaptchaContainer.style.borderRadius = '8px';
-      recaptchaContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      /* recaptchaContainer.scrollIntoView({ behavior: 'smooth', block: 'center' }); */
       setTimeout(() => { recaptchaContainer.style.outline = 'none'; }, 3000);
       return;
     }
@@ -484,7 +485,7 @@ async function submitVotes() {
 
   const checkbox = document.getElementById('kvkkCheckbox');
   if (checkbox && !checkbox.checked) {
-    alert('Lutfen Aydinlatma Metni\'ni onaylayin.');
+    alert('Lütfen Aydınlatma Metni\'ni onaylayın.');
     return;
   }
 
@@ -544,7 +545,7 @@ async function submitVotes() {
       document.getElementById('voteSection').classList.add('hidden');
       document.getElementById('alreadyVotedSection').classList.remove('hidden');
     } else {
-      alert(e.message || 'Bir hata olustu. Lutfen tekrar deneyin.');
+      alert(e.message || 'Bir hata oluştu. Lütfen tekrar deneyin.');
     }
   }
 }

@@ -263,7 +263,7 @@ const AntifraudManager = (() => {
         // 44100Hz'de 1 saniyelik buffer
         const context = new AudioContext(1, 44100, 44100);
 
-        // Oscillator ve Compressor olustur
+        // Oscillator ve Compressor oluştur
         const oscillator = context.createOscillator();
         oscillator.type = "triangle";
         oscillator.frequency.value = 10000;
@@ -294,7 +294,7 @@ const AntifraudManager = (() => {
             hash = hash & 0x7fffffff;
             resolve(hash.toString(36));
           } catch (err) {
-            reject(new Error("Ses imzasi olusturulamadi."));
+            reject(new Error("Ses imzası oluşturulamadı."));
           }
         };
 
@@ -528,7 +528,7 @@ const AntifraudManager = (() => {
 
   function sanitizeSelections(selections) {
     if (!selections || typeof selections !== "object" || Array.isArray(selections)) {
-      throw new Error("Gecersiz oy verisi.");
+      throw new Error("Geçersiz oy verisi.");
     }
 
     const categoryMap = new Map();
@@ -540,19 +540,19 @@ const AntifraudManager = (() => {
     const incomingKeys = Object.keys(selections);
 
     if (incomingKeys.length !== CATEGORIES.length) {
-      throw new Error("Eksik veya gecersiz kategori secimi.");
+      throw new Error("Eksik veya geçersiz kategori seçimi.");
     }
 
     for (const category of CATEGORIES) {
       const selectedCandidate = selections[category.id];
       if (typeof selectedCandidate !== "string" || !categoryMap.get(category.id).has(selectedCandidate)) {
-        throw new Error("Gecersiz aday secimi tespit edildi.");
+        throw new Error("Geçersiz aday seçimi tespit edildi.");
       }
       cleanedSelections[category.id] = selectedCandidate;
     }
 
     if (Object.keys(cleanedSelections).length !== incomingKeys.length) {
-      throw new Error("Beklenmeyen secim verisi tespit edildi.");
+      throw new Error("Beklenmeyen seçim verisi tespit edildi.");
     }
 
     return cleanedSelections;
@@ -676,7 +676,7 @@ const AntifraudManager = (() => {
       console.error("Firestore Check Error:", e);
       // Eğer AdGuard vb. tarafından engellenmişse hatayı yukarı fırlat ki kullanıcıya bilgi verebilelim
       if (e.message.includes('access control checks') || e.code === 'unavailable' || !navigator.onLine) {
-        throw new Error("Baglanti engellendi! Reklam engelleyicinizi (AdGuard vb.) devre dışı bırakıp tekrar deneyin.");
+        throw new Error("Bağlantı engellendi! Reklam engelleyicinizi (AdGuard vb.) devre dışı bırakıp tekrar deneyin.");
       }
       return null;
     }
@@ -1019,12 +1019,12 @@ const AntifraudManager = (() => {
         await warmup();
       }
 
-      if (_votingStartedAt === 0) {
-        throw new Error("Oylama oturumu baslatilmadi. Lutfen sayfayi yenileyip tekrar deneyin.");
+      if (!_warmupReady) {
+        throw new Error("Oylama oturumu başlatılmadı. Lütfen sayfayı yenileyip tekrar deneyin.");
       }
-      const elapsed = Date.now() - _votingStartedAt;
-      if (elapsed < MIN_VOTING_DURATION_MS && !forceFallback) {
-        throw new Error("Cok hizli oylama tespit edildi. Lutfen biraz bekleyip tekrar deneyin.");
+
+      if (Date.now() - _votingStartedAt < MIN_VOTING_DURATION_MS) {
+        throw new Error("Çok hızlı oylama tespit edildi. Lütfen biraz bekleyip tekrar deneyin.");
       }
 
       // 1. Tekrar oy kontrolü (Fallback modunda bile en azından yerel kontrol yapalım)
@@ -1074,10 +1074,10 @@ const AntifraudManager = (() => {
 
       // Network engellemesi tespiti (ERR_BLOCKED_BY_CLIENT vb.)
       if (stack.includes("BLOCKED_BY_CLIENT") || stack.includes("access control checks") || !navigator.onLine) {
-        throw new Error("Baglanti engellendi! Reklam engelleyicinizi (AdGuard vb.) devre dışı bırakıp tekrar deneyin.");
+        throw new Error("Bağlantı engellendi! Reklam engelleyicinizi (AdGuard vb.) devre dışı bırakıp tekrar deneyin.");
       }
 
-      throw new Error(msg || "Bilinmeyen bir hata olustu. Lutfen internetinizi kontrol edin.");
+      throw new Error(msg || "Bilinmeyen bir hata oluştu. Lütfen internetinizi kontrol edin.");
     }
   }
 

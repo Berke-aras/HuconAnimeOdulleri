@@ -38,6 +38,7 @@ const AniListService = (() => {
         id
         coverImage {
           large
+          medium
         }
       }
     }
@@ -49,6 +50,7 @@ const AniListService = (() => {
         id
         image {
           large
+          medium
         }
       }
     }
@@ -60,6 +62,7 @@ const AniListService = (() => {
         id
         coverImage {
           large
+          medium
         }
       }
     }
@@ -110,6 +113,24 @@ const AniListService = (() => {
       .trim();
   }
 
+  /**
+   * Performance optimization: Check if we should use high resolution based on hardware/network.
+   */
+  function shouldUseHighRes() {
+    // 1. Check network speed if available
+    if (navigator.connection) {
+      const type = navigator.connection.effectiveType;
+      if (type === '2g' || type === 'slow-2g' || type === '3g') return false;
+      if (navigator.connection.saveData) return false;
+    }
+    // 2. Check hardware (low RAM usually means low-end device)
+    if (navigator.deviceMemory && navigator.deviceMemory < 4) return false;
+    // 3. Check screen width (small screen doesn't need huge images)
+    if (window.innerWidth < 480) return false;
+    
+    return true;
+  }
+
   async function fetchImage(name, type = 'ANIME', fallbackSearch = null) {
     const isId = typeof name === 'number' || /^\d+$/.test(name);
     const cacheId = type.toLowerCase() + '_' + (isId ? 'id_' : '') + name.toString().toLowerCase().replace(/\s+/g, '_');
@@ -135,10 +156,12 @@ const AniListService = (() => {
         const data = result.data;
 
         let imageUrl = null;
+        const resKey = shouldUseHighRes() ? 'large' : 'medium';
+
         if (type === 'CHARACTER' && data.Character) {
-          imageUrl = data.Character.image.large;
+          imageUrl = data.Character.image[resKey] || data.Character.image.large;
         } else if (data.Media) {
-          imageUrl = data.Media.coverImage.large;
+          imageUrl = data.Media.coverImage[resKey] || data.Media.coverImage.large;
         }
 
         if (imageUrl) {
