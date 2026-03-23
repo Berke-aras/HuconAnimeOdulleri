@@ -352,22 +352,17 @@ async function loadCandidateImage(card, candidate, categoryId) {
     });
     await Promise.all(promises);
     placeholder.style.display = 'none';
+  } else {
     // Tek resim
     const finalUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
-    img.src = finalUrl;
     
-    // Zaten önbellekteyse onload tetiklenmeyebilir, hemen kontrol et
-    if (img.complete) {
+    // Güvenli yükleme (cached olsa bile load veya error fırlatır)
+    img.onload = () => {
       img.style.opacity = '1';
       placeholder.style.display = 'none';
       wrapper.style.backgroundColor = 'transparent';
-    } else {
-      img.onload = () => {
-        img.style.opacity = '1';
-        placeholder.style.display = 'none';
-        wrapper.style.backgroundColor = 'transparent';
-      };
-    }
+    };
+    img.src = finalUrl;
   }
 }
 
