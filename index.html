@@ -190,6 +190,7 @@
         if (voted === null) {
           // Timeout — siteyi aç, arka planda devam etsin
           showSection('heroSection');
+          setTimeout(() => { if (typeof AniListService !== 'undefined') AniListService.startBackgroundPrefetch(); }, 3000);
           return;
         }
 
@@ -202,6 +203,8 @@
           showSection('alreadyVoted');
         } else {
           showSection('heroSection');
+          // Site yüklendikten 3 saniye sonra zayıf cihazı yormadan (idle) arkaplan resimlerini çek
+          setTimeout(() => { if (typeof AniListService !== 'undefined') AniListService.startBackgroundPrefetch(); }, 3000);
         }
       } catch (e) {
         clearInterval(msgTimer);

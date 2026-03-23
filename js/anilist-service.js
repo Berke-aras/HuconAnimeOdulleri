@@ -40,20 +40,38 @@ const AniListService = (() => {
   } catch (e) { }
 
   async function queryAniList(query, variables) {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ query, variables })
-    });
+    let retries = 2; // Rate limit veya ağ hatası durumunda 2 kez tekrar dene
+    while (retries >= 0) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ query, variables })
+        });
+        
+        if (response.status === 429 && retries > 0) {
+          retries--;
+          const retryAfter = response.headers.get('retry-after');
+          const delay = retryAfter ? parseInt(retryAfter) * 1000 : 1500;
+          console.warn(`[AniList] Rate limit exceeded. Retrying after ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
 
-    if (!response.ok) {
-      throw new Error('AniList API error: ' + response.statusText);
+        if (!response.ok) {
+          throw new Error('AniList API error: ' + response.statusText);
+        }
+
+        return await response.json();
+      } catch (e) {
+        if (retries === 0) throw e;
+        retries--;
+        await new Promise(r => setTimeout(r, 1000));
+      }
     }
-
-    return response.json();
   }
 
   const ANIME_QUERY = `
@@ -317,19 +335,56 @@ const AniListService = (() => {
 
   /**
    * Prefetches images for a whole category to speed up UX.
-   * Tam paralel çalışır — batch sınırı yok, inflight dedup aşırı yükü önler.
+   * Rate limit'i aşmamak için küçük gruplar (batch) ve ufak gecikmelerle çalışır.
    */
   async function prefetchCategoryImages(candidates, categoryId) {
     if (!candidates || !Array.isArray(candidates)) return;
-    // Tümünü aynı anda başlat — inflight map duplicate istekleri önler
-    await Promise.allSettled(
-      candidates.map(c => resolveCandidateImage(c, categoryId))
-    );
+    
+    // Process in small batches to avoid hitting AniList rate limits too hard at once
+    const batchSize = 3;
+    for (let i = 0; i < candidates.length; i += batchSize) {
+      const batch = candidates.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map(c => resolveCandidateImage(c, categoryId)));
+      // Aynı anda devasa patlamalar (burst) yaşanmaması için ufak dinlenme
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+
+  /**
+   * Arkaplanda (idle) yavaş yavaş TÜM kategorilerin resimlerini indirir.
+   * Bu sayede kullanıcı siteyi açtıktan bir süre sonra her şey hazır olur.
+   */
+  let _bgPrefetchRunning = false;
+  async function startBackgroundPrefetch() {
+    if (_bgPrefetchRunning || typeof CATEGORIES === 'undefined') return;
+    _bgPrefetchRunning = true;
+    
+    console.log("[AniList] Arkaplan resim ön-yüklemesi (idle prefetch) başladı...");
+    
+    for (const cat of CATEGORIES) {
+      for (const candidate of cat.candidates) {
+        // Sunucuyu kızdırmamak ve interneti sömürmemek için her aday arası 1.5 saniye bekle
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          const url = await resolveCandidateImage(candidate, cat.id);
+          if (url) {
+            // Resim URL'sini sadece AniList cache'e değil, tarayıcının HTTP önbelleğine de indir!
+            const imgUrls = Array.isArray(url) ? url : [url];
+            imgUrls.forEach(u => {
+              const img = new Image();
+              img.src = u; // Bu işlem resmi tarayıcı önbelleğine alır
+            });
+          }
+        } catch (e) {}
+      }
+    }
+    console.log("[AniList] Arkaplan resim ön-yüklemesi tamamlandı.");
   }
 
   return {
     resolveCandidateImage,
     prefetchCategoryImages,
-    fetchImage
+    fetchImage,
+    startBackgroundPrefetch
   };
 })();

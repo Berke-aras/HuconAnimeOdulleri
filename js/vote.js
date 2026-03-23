@@ -406,6 +406,7 @@ function goNext() {
   if (currentCategoryIndex < CATEGORIES.length - 1) {
     currentCategoryIndex++;
     renderCategory(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
     showConfirmScreen();
   }
@@ -415,6 +416,7 @@ function goBack() {
   if (currentCategoryIndex > 0) {
     currentCategoryIndex--;
     renderCategory(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
 
