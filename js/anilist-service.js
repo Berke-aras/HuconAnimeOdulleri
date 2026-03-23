@@ -261,6 +261,13 @@ const AniListService = (() => {
    * Resolves a candidate's image URL. 
    */
   async function resolveCandidateImage(candidate, categoryId) {
+    // YEREL SUNUCU (IMAGE_MAP) KONTROLÜ
+    // Eğer fetch.js çalıştırılıp resimler indirildiyse Github üzerinden anında yükle
+    const mapKey = categoryId + '_' + candidate.id;
+    if (typeof IMAGE_MAP !== 'undefined' && IMAGE_MAP[mapKey]) {
+      return IMAGE_MAP[mapKey]; // Tekli string veya [resim1, resim2] array formatında döner
+    }
+    
     // 0. Hard block for Lazarus
     const isLazarus = ((candidate.name && candidate.name.toLowerCase().includes('lazarus')) || 
                       (candidate.anime && candidate.anime.toLowerCase().includes('lazarus'))) &&
