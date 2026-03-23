@@ -7,12 +7,36 @@
 const AniListService = (() => {
   const API_URL = 'https://graphql.anilist.co';
   const CACHE_KEY = 'anilist_image_cache';
+  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 gün
 
-  // Local cache to avoid repeated requests in same session
-  let _cache = {};
+  // Memory-first session cache (JSON parse yok — en hızlı yol)
+  const _memCache = {};
+
+  // İnflight dedup: aynı istek birden fazla kez gönderilmesin
+  const _inflight = {};
+
+  // Persistent cache (localStorage — sayfa yenileme arası)
+  let _diskCache = {};
   try {
     const saved = localStorage.getItem(CACHE_KEY);
-    if (saved) _cache = JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // TTL kontrolü: eski girişleri filtrele
+      const now = Date.now();
+      Object.keys(parsed).forEach(k => {
+        const entry = parsed[k];
+        if (entry && typeof entry === 'object' && entry.url && entry.ts) {
+          if (now - entry.ts < CACHE_TTL_MS) {
+            _diskCache[k] = entry.url;
+            _memCache[k] = entry.url; // memory'e de al
+          }
+        } else if (typeof entry === 'string') {
+          // Eski format (sadece URL) — geçici uyumluluk
+          _diskCache[k] = entry;
+          _memCache[k] = entry;
+        }
+      });
+    }
   } catch (e) { }
 
   async function queryAniList(query, variables) {
@@ -79,7 +103,6 @@ const AniListService = (() => {
     "xeno (dr. stone: science future)": "186479",
     "dr. xeno": "186479",
     "solo leveling sezon 2": "Solo Leveling Season 2",
-    "solo leveling sezon 2": "Solo Leveling Season 2",
     "dr. stone: science future": "Dr. STONE: SCIENCE FUTURE",
     "kaijuu 8-gou 2nd season": "Kaijuu 8-gou",
     "kaiju no.9": "Kaiju No. 9",
@@ -135,56 +158,74 @@ const AniListService = (() => {
     const isId = typeof name === 'number' || /^\d+$/.test(name);
     const cacheId = type.toLowerCase() + '_' + (isId ? 'id_' : '') + name.toString().toLowerCase().replace(/\s+/g, '_');
 
-    if (_cache[cacheId]) return _cache[cacheId];
+    // 1. Memory cache — en hızlı, JSON parse yok
+    if (_memCache[cacheId] !== undefined) return _memCache[cacheId];
 
-    const attempts = isId ? [name] : (fallbackSearch ? [name, fallbackSearch] : [name]);
+    // 2. İnflight dedup — aynı istek zaten gidiyorsa bekle
+    if (_inflight[cacheId]) return _inflight[cacheId];
 
-    for (const searchVal of attempts) {
-      try {
-        const variables = {};
-        if (isId) {
-          variables.id = parseInt(searchVal);
-        } else {
-          variables.search = searchVal;
+    _inflight[cacheId] = (async () => {
+      const attempts = isId ? [name] : (fallbackSearch ? [name, fallbackSearch] : [name]);
+
+      for (const searchVal of attempts) {
+        try {
+          const variables = {};
+          if (isId) {
+            variables.id = parseInt(searchVal);
+          } else {
+            variables.search = searchVal;
+          }
+
+          let query = ANIME_QUERY;
+          if (type === 'CHARACTER') query = CHARACTER_QUERY;
+          if (type === 'MANGA') query = MANGA_QUERY;
+
+          const result = await queryAniList(query, variables);
+          const data = result.data;
+
+          let imageUrl = null;
+          const resKey = shouldUseHighRes() ? 'large' : 'medium';
+
+          if (type === 'CHARACTER' && data.Character) {
+            imageUrl = data.Character.image[resKey] || data.Character.image.large;
+          } else if (data.Media) {
+            imageUrl = data.Media.coverImage[resKey] || data.Media.coverImage.large;
+          }
+
+          if (imageUrl) {
+            _memCache[cacheId] = imageUrl;
+            _diskCache[cacheId] = imageUrl;
+            saveCache();
+            delete _inflight[cacheId];
+            return imageUrl;
+          }
+        } catch (e) {
+          console.warn(`AniList fetch failed for ${name}:`, e);
         }
-
-        let query = ANIME_QUERY;
-        if (type === 'CHARACTER') query = CHARACTER_QUERY;
-        if (type === 'MANGA') query = MANGA_QUERY;
-
-        const result = await queryAniList(query, variables);
-        const data = result.data;
-
-        let imageUrl = null;
-        const resKey = shouldUseHighRes() ? 'large' : 'medium';
-
-        if (type === 'CHARACTER' && data.Character) {
-          imageUrl = data.Character.image[resKey] || data.Character.image.large;
-        } else if (data.Media) {
-          imageUrl = data.Media.coverImage[resKey] || data.Media.coverImage.large;
-        }
-
-        if (imageUrl) {
-          _cache[cacheId] = imageUrl;
-          saveCache();
-          return imageUrl;
-        }
-      } catch (e) {
-        console.warn(`AniList fetch failed for ${searchName}:`, e);
       }
-    }
+      // Eğer API geçici olarak çöktüyse veya Rate Limit yendiyse "null" cachelemeyelim ki tekrar deneyebilsin.
+      // Yalnızca başarılı ise cache eklensin.
+      delete _inflight[cacheId];
+      return null;
+    })();
 
-    return null;
+    return _inflight[cacheId];
   }
 
   function saveCache() {
     try {
-      // Keep cache size manageable
-      const keys = Object.keys(_cache);
-      if (keys.length > 500) {
-        delete _cache[keys[0]];
+      const now = Date.now();
+      const keys = Object.keys(_diskCache);
+      // Max 300 giriş — en eskiyi sil (FIFO)
+      if (keys.length > 300) {
+        keys.slice(0, keys.length - 300).forEach(k => delete _diskCache[k]);
       }
-      localStorage.setItem(CACHE_KEY, JSON.stringify(_cache));
+      // TTL ile kaydet
+      const toSave = {};
+      keys.forEach(k => {
+        if (_diskCache[k]) toSave[k] = { url: _diskCache[k], ts: now };
+      });
+      localStorage.setItem(CACHE_KEY, JSON.stringify(toSave));
     } catch (e) { }
   }
 
@@ -202,7 +243,7 @@ const AniListService = (() => {
    * Resolves a candidate's image URL. 
    */
   async function resolveCandidateImage(candidate, categoryId) {
-    // 0. Hard block for Lazarus (User requirement: Never use AniList for Lazarus, strictly use provided local image)
+    // 0. Hard block for Lazarus
     const isLazarus = ((candidate.name && candidate.name.toLowerCase().includes('lazarus')) || 
                       (candidate.anime && candidate.anime.toLowerCase().includes('lazarus'))) &&
                       !(candidate.name && candidate.name.toLowerCase().includes('skinner'));
@@ -227,7 +268,6 @@ const AniListService = (() => {
     const searchType = isCharacter ? 'CHARACTER' : (isManga ? 'MANGA' : 'ANIME');
 
     // 3. Prepare search names
-    // Check raw override first (e.g. "Haruka (Wind Breaker)")
     const rawOverride = TITLE_OVERRIDES[candidate.name.toLowerCase()];
     if (rawOverride) {
       const url = await fetchImage(rawOverride, searchType);
@@ -237,7 +277,6 @@ const AniListService = (() => {
     const cleanedName = cleanSearchName(candidate.name);
     const cleanedAnime = candidate.anime ? cleanSearchName(candidate.anime) : null;
 
-    // Check cleaned override
     const cleanedOverride = TITLE_OVERRIDES[cleanedName.toLowerCase()];
     const nameToSearch = cleanedOverride || cleanedName;
 
@@ -246,7 +285,6 @@ const AniListService = (() => {
       const names = cleanedName.split(/\s*x\s*|\s*&\s*/i);
       const urls = await Promise.all(names.map(async (n) => {
         const charName = n.trim();
-        // Try searching Character + Anime for couples to be safe
         let img = await fetchImage(charName, 'CHARACTER', cleanedAnime ? `${charName} ${cleanedAnime}` : null);
         if (!img && cleanedAnime) img = await fetchImage(cleanedAnime, 'ANIME');
         return img;
@@ -257,28 +295,18 @@ const AniListService = (() => {
     let url = null;
 
     if (isCharacter) {
-      // Try searching Character + Anime for better accuracy if they are in candidates
       const fallback = cleanedAnime ? `${nameToSearch} ${cleanedAnime}` : null;
       url = await fetchImage(nameToSearch, 'CHARACTER', fallback);
-
-      // Secondary fallback to anime cover if character not found
       if (!url && cleanedAnime) {
         url = await fetchImage(cleanedAnime, 'ANIME');
       }
     } else {
-      // For non-characters (Anime, Manga, OP/ED, etc.)
-
-      // Attempt 1: Search by candidate.anime directly
       if (cleanedAnime) {
         url = await fetchImage(cleanedAnime, searchType);
       }
-
-      // Attempt 2: Search by full cleaned name
       if (!url) {
         url = await fetchImage(nameToSearch, searchType);
       }
-
-      // Attempt 3: Stripping song fallback
       if (!url && (cleanedName.includes('—') || cleanedName.includes('-'))) {
         url = await fetchImage(stripSong(cleanedName), searchType);
       }
@@ -289,16 +317,14 @@ const AniListService = (() => {
 
   /**
    * Prefetches images for a whole category to speed up UX.
+   * Tam paralel çalışır — batch sınırı yok, inflight dedup aşırı yükü önler.
    */
   async function prefetchCategoryImages(candidates, categoryId) {
     if (!candidates || !Array.isArray(candidates)) return;
-
-    // Process in small batches to avoid hitting AniList rate limits too hard at once
-    const batchSize = 5;
-    for (let i = 0; i < candidates.length; i += batchSize) {
-      const batch = candidates.slice(i, i + batchSize);
-      await Promise.all(batch.map(c => resolveCandidateImage(c, categoryId)));
-    }
+    // Tümünü aynı anda başlat — inflight map duplicate istekleri önler
+    await Promise.allSettled(
+      candidates.map(c => resolveCandidateImage(c, categoryId))
+    );
   }
 
   return {

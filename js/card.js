@@ -26,7 +26,29 @@ const COLORS = {
 };
 
 let _cardCanvas = null;
-let _scale = 1; // Adaptive scale factor
+
+/**
+ * Cihaz performansını ve ekran boyutunu göz önünde bulundurarak
+ * canvas scale faktörünü belirler.
+ * - Güçlü cihaz / büyük ekran → 1.0 (1080×1920)
+ * - Orta cihaz → 0.75 (810×1440)
+ * - Zayıf / mobil → 0.6 (648×1152)
+ */
+function detectScale() {
+  const isMobile = window.innerWidth <= 768;
+  const lowRAM = navigator.deviceMemory && navigator.deviceMemory < 3;
+  const slowNet = navigator.connection &&
+    (navigator.connection.effectiveType === '2g' ||
+     navigator.connection.effectiveType === 'slow-2g' ||
+     navigator.connection.saveData);
+
+  if (lowRAM || slowNet) return 0.6;
+  if (isMobile) return 0.75;
+  return 1.0;
+}
+
+let _scale = detectScale();
+
 
 // Redundant getVoteData removed. Using AntifraudManager.getVoteData() instead.
 
@@ -93,8 +115,9 @@ function drawInitialsThumb(ctx, initials, x, y, size, radius, color) {
 }
 
 async function renderCard(data) {
-  const isLowPerf = typeof PerformanceOptimizer !== 'undefined' && PerformanceOptimizer.isLowPerf;
-  _scale = isLowPerf ? 0.8 : 1; // 60% resolution for low-end devices
+  // Scale zaten sayfa yüklendiğinde belirlenmişti (detectScale)
+  // Tekrar hesapla (kullanıcı sayfayı döndürmüş olabilir)
+  _scale = detectScale();
 
   const canvas = document.getElementById('cardCanvas');
   const finalW = CARD_W * _scale;
@@ -103,7 +126,11 @@ async function renderCard(data) {
   canvas.width = finalW;
   canvas.height = finalH;
 
-  // Real scale for context drawing
+  // CSS preview boyutu — ekran genişliğine sığdır
+  const maxDisplayW = Math.min(window.innerWidth - 32, 540);
+  canvas.style.width = maxDisplayW + 'px';
+  canvas.style.height = 'auto';
+
   const ctx = canvas.getContext('2d');
   ctx.scale(_scale, _scale);
 
@@ -125,7 +152,10 @@ async function renderCard(data) {
     drawDefaultBackground(ctx);
   }
 
-  // Secim verilerini hazirla ve resimleri onceden yukle
+  // Header kısmını hemen çiz (Progressive rendering — kullanıcı "boş kart" görmez)
+  drawNumberSection(ctx, data, hasBg);
+
+  // Aday listesi hazır — başlangıçta placeholder ile çiz
   const selections = [];
   const imagePromises = [];
 
@@ -153,13 +183,32 @@ async function renderCard(data) {
     imagePromises.push(imgPromise);
   });
 
-  await Promise.all(imagePromises);
+  // Seçimleri önce placeholder ile çiz (hızlı ilk render)
+  drawSelectionsSection(ctx, data, hasBg, selections);
 
+  // Tüm resimler yüklenince tekrar çiz
+  await Promise.all(imagePromises);
+  // Context'i sıfırla ve yeniden çiz
+  ctx.setTransform(_scale, 0, 0, _scale, 0, 0);
+  ctx.clearRect(0, 0, CARD_W, CARD_H);
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  if (hasBg) {
+    try {
+      const bgImg = await loadImageSafe(SITE_CONFIG.cardBackground);
+      if (bgImg) ctx.drawImage(bgImg, 0, 0, CARD_W, CARD_H);
+      else drawDefaultBackground(ctx);
+    } catch { drawDefaultBackground(ctx); }
+  } else {
+    drawDefaultBackground(ctx);
+  }
   drawNumberSection(ctx, data, hasBg);
   drawSelectionsSection(ctx, data, hasBg, selections);
 
   _cardCanvas = canvas;
 }
+
+
 
 function drawDefaultBackground(ctx) {
   const g1 = ctx.createRadialGradient(CARD_W * 0.5, 0, 0, CARD_W * 0.5, 0, CARD_H * 0.6);
@@ -230,9 +279,8 @@ function drawNumberSection(ctx, data, hasBg) {
 
   ctx.font = 'bold 120px Outfit, sans-serif';
 
-  // Disable shadows on low-perf devices to save RAM/GPU
-  const isLowPerf = typeof PerformanceOptimizer !== 'undefined' && PerformanceOptimizer.isLowPerf;
-  if (!isLowPerf) {
+  // Mobil/düşük güçlü cihazlarda (scale < 1) gölge kapalı — GPU'yu rahatlatır
+  if (_scale >= 1.0) {
     ctx.shadowColor = COLORS.numberGlow;
     ctx.shadowBlur = 50;
   }

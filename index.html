@@ -5,19 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <title>Anime Oylama</title>
+  <title>Anime Oylama — HUCON'26</title>
+  <meta name="description" content="HUCON'26 Anime Oylaması — Favori animeni, karakterini ve filmini seç! Oy ver, hatıra kartını indir ve paylaş.">
+
+  <!-- Open Graph (WhatsApp, Discord, Facebook) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Anime Oylama — HUCON'26">
+  <meta property="og:description" content="Favori animeni, karakterini ve filmini seç! Oy ver, hatıra kartını indir ve paylaş.">
+  <meta property="og:image" content="img/og-cover.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="tr_TR">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Anime Oylama — HUCON'26">
+  <meta name="twitter:description" content="Favori animeni, karakterini ve filmini seç! Oy ver, hatıra kartını indir.">
+  <meta name="twitter:image" content="img/og-cover.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://openfpcdn.io">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+
+  <style>
+    /* Ana sayfa açılış animasyonu */
+    #heroSection {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    #heroSection.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #heroSection .hero-content > * {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    #heroSection.visible .hero-content > *:nth-child(1) { opacity: 1; transform: translateY(0); transition-delay: 0.05s; }
+    #heroSection.visible .hero-content > *:nth-child(2) { opacity: 1; transform: translateY(0); transition-delay: 0.12s; }
+    #heroSection.visible .hero-content > *:nth-child(3) { opacity: 1; transform: translateY(0); transition-delay: 0.18s; }
+    #heroSection.visible .hero-content > *:nth-child(4) { opacity: 1; transform: translateY(0); transition-delay: 0.24s; }
+    #heroSection.visible .hero-content > *:nth-child(5) { opacity: 1; transform: translateY(0); transition-delay: 0.30s; }
+    #heroSection.visible .hero-content > *:nth-child(6) { opacity: 1; transform: translateY(0); transition-delay: 0.36s; }
+  </style>
 </head>
 <body>
   <!-- Loading -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner"></div>
-    <div class="loading-text">Kontrol ediliyor...</div>
+    <div class="loading-text" id="indexLoadingText">Yükleniyor...</div>
   </div>
 
   <!-- Ana Sayfa -->
@@ -115,23 +156,55 @@
       pillsEl.appendChild(pill);
     });
 
+    function showSection(id) {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      const el = document.getElementById(id);
+      el.classList.remove('hidden');
+      // Animatik fade-in için kısa gecikme (layout paint sonrası)
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('visible')));
+    }
+
     (async () => {
+      // Dönen loading mesajı
+      const loadingEl = document.getElementById('indexLoadingText');
+      const msgs = ['Yükleniyor...', 'Kontrol ediliyor...', 'Neredeyse hazır...'];
+      let mi = 0;
+      const msgTimer = setInterval(() => {
+        mi = (mi + 1) % msgs.length;
+        if (loadingEl) loadingEl.textContent = msgs[mi];
+      }, 2000);
+
       try {
-        const voted = await AntifraudManager.hasAlreadyVoted();
-        document.getElementById('loadingOverlay').classList.add('hidden');
-        
+        // Cookie hızlı kontrolü
+        const hasVotedCookie = document.cookie.includes('animeoy_v');
+
+        const voted = hasVotedCookie
+          ? true
+          : await Promise.race([
+              AntifraudManager.hasAlreadyVoted(),
+              new Promise(resolve => setTimeout(() => resolve(null), 6000))
+            ]);
+
+        clearInterval(msgTimer);
+
+        if (voted === null) {
+          // Timeout — siteyi aç, arka planda devam etsin
+          showSection('heroSection');
+          return;
+        }
+
         if (voted) {
-          // Eger veri kurtarildiysa (Gizli sekme veya silinmis veri), ekstra koruma sagla
           if (typeof voted === 'object' && voted.data) {
             const d = voted.data;
             const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
             AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
           }
-          document.getElementById('alreadyVoted').classList.remove('hidden');
+          showSection('alreadyVoted');
         } else {
-          document.getElementById('heroSection').classList.remove('hidden');
+          showSection('heroSection');
         }
       } catch (e) {
+        clearInterval(msgTimer);
         document.getElementById('loadingOverlay').classList.add('hidden');
         document.getElementById('errorSection').classList.remove('hidden');
       }

@@ -142,8 +142,8 @@ const AntifraudManager = (() => {
 
   async function getAdvancedWebGLFingerprint() {
     return new Promise((resolve, reject) => {
-      // Arka planda calistigi icin 30 saniyelik genis bir zaman taniyoruz
-      const timeout = setTimeout(() => resolve("webgl-timeout"), 30000);
+      // Eskiden 30 saniyeydi, zayıf cihazı gereksiz yere tıkamasın diye 8 saniyeye indirildi
+      const timeout = setTimeout(() => resolve("webgl-timeout"), 8000);
       try {
         const canvas = document.createElement("canvas");
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -476,16 +476,26 @@ const AntifraudManager = (() => {
   async function generateHardwareHashes() {
     if (_cache.hardwareHashes) return _cache.hardwareHashes;
 
-    const [audioRaw, fontRaw, voicesRaw, webrtcRaw, webglHardware, webglAdvanced, canvasRaw] = await Promise.all([
-      getAudioContextFingerprint(),
-      getFontFingerprint(),
-      getSpeechVoicesFingerprint(),
-      getWebRTCIP(),
-      getWebGLFingerprint(),
-      getAdvancedWebGLFingerprint(),
-      getCanvasFingerprint()
-    ]);
+    // Helper: Tarayıcının nefes alması için asenkron uyku
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+    // ZAYIF CİHAZ YIELDING: Ağır işleri aynı anda başlatmak yerine sırayla 
+    // ve aralarda Main Thread'i serbest bırakarak (uyuyarak) yapıyoruz.
+    const audioRaw = await getAudioContextFingerprint();
+    await sleep(20);
+    const fontRaw = await getFontFingerprint();
+    await sleep(20);
+    const voicesRaw = await getSpeechVoicesFingerprint();
+    await sleep(20);
+    const webrtcRaw = await getWebRTCIP();
+    await sleep(20);
+    const webglHardware = await getWebGLFingerprint();
+    await sleep(20);
+    const webglAdvanced = await getAdvancedWebGLFingerprint(); // Ağır işlem
+    await sleep(20);
+    const canvasRaw = await getCanvasFingerprint();
+
+    // Hashes (SHA-256 Crypto API nispeten hızlıdır, promise.all ile kurtarırız)
     const [audioHash, fontHash, voicesHash, localIpHash, canvasHash, hardwareHashBase] = await Promise.all([
       sha256(audioRaw),
       sha256(fontRaw),
@@ -512,7 +522,6 @@ const AntifraudManager = (() => {
 
   async function generateHardwareSignature() {
     const hh = await generateHardwareHashes();
-    // 7 kalemden imza üret (Local IP artik düşük ağırlıklı bir parça)
     return await sha256([hh.audioHash, hh.fontHash, hh.voicesHash, hh.localIpHash, hh.webglHash, hh.canvasHash, hh.hardwareProfile].join("|"));
   }
 
@@ -911,12 +920,30 @@ const AntifraudManager = (() => {
   async function hasAlreadyVoted() {
     if (isRevoteMode()) return false;
 
-    // 1. Yerel kontrol (Bayraklar)
+    // 1. Yerel kontrol (Bayraklar) - Hızlı, önce kontrol et
     const localFlag = getVotedLS() || getCookie() || getWindowName();
+    
+    // YENİ: Eğer yerel bayrak varsa ağır testleri beklemeden anında dön! (Güçsüz cihazları rahatlatır)
+    if (localFlag) return true;
 
-    // 2. Tarayici bazli kontrol (visitorId)
-    const visitorId = await getVisitorId();
-    const firestoreData = await checkFirestore(visitorId);
+    // 2. Warmup'ın bitmesini bekle (cache'den hızlıca okur)
+    if (_cache.warmupPromise) {
+      await _cache.warmupPromise;
+    }
+
+    // 3. Tarayici bazli kontrol + Donanim toplama PARALEL yap (cache'den okur)
+    const [visitorId, hardwareHashes, ipHash] = await Promise.all([
+      getVisitorId(),           
+      generateHardwareHashes(), 
+      getIPHash()               
+    ]);
+
+    // 4. Firestore kontrolleri PARALEL yap
+    const deviceId = await generateDeviceFingerprint(); 
+    const [firestoreData, matchedData] = await Promise.all([
+      checkFirestore(visitorId),
+      findMatchedVoteData(deviceId, ipHash, hardwareHashes)
+    ]);
 
     if (firestoreData) {
       // Kimlik bulundu, yerel verileri guncelle
@@ -926,12 +953,6 @@ const AntifraudManager = (() => {
       return { status: 'visitor_match', data: firestoreData };
     }
 
-    // 3. Donanim bazli kontrol (Gizli sekme / Farkli tarayici)
-    const deviceId = await generateDeviceFingerprint();
-    const hardwareHashes = await generateHardwareHashes();
-    const ipHash = await getIPHash();
-    const matchedData = await findMatchedVoteData(deviceId, ipHash, hardwareHashes);
-
     if (matchedData) {
       // Donanim eslesmesi ile kimlik kurtarma
       markAsVotedLocally();
@@ -939,9 +960,6 @@ const AntifraudManager = (() => {
       storeVoteData(matchedData.selections, matchedData.cardNumber, accessToken);
       return { status: 'device_block', data: matchedData };
     }
-
-    // 4. Eger Firestore'da bulunamadiysa ama localde bayrak varsa
-    if (localFlag) return true;
 
     return false;
   }

@@ -108,9 +108,17 @@ if (typeof AntifraudManager !== 'undefined') {
 
 (async function init() {
   const loadingOverlay = document.getElementById('loadingOverlay');
-  const errorSection = document.getElementById('errorSection');
+  const initLoadingText = document.getElementById('initLoadingText');
   const alreadyVotedSection = document.getElementById('alreadyVotedSection');
   const voteSection = document.getElementById('voteSection');
+
+  // Güçsüz cihazlar için dönen loading mesajları
+  const loadingMessages = ['Kontrol ediliyor...', 'Güvenlik kontrolü yapılıyor...', 'Lütfen bekleyin...', 'Bağlantı sağlanıyor...', 'Neredeyse hazır...'];
+  let msgIdx = 0;
+  const msgInterval = setInterval(() => {
+    msgIdx = (msgIdx + 1) % loadingMessages.length;
+    if (initLoadingText) initLoadingText.textContent = loadingMessages[msgIdx];
+  }, 1800);
 
   console.log("Vote UI: Initializing...");
   // --- LAZY INITIALIZATION ---
@@ -129,6 +137,7 @@ if (typeof AntifraudManager !== 'undefined') {
     // 3. Hızlı Yerel Kontrol (Cookie check)
     const hasVotedFlag = document.cookie.includes('animeoy_v');
     if (hasVotedFlag) {
+      clearInterval(msgInterval);
       loadingOverlay.classList.add('hidden');
       alreadyVotedSection.classList.remove('hidden');
       voteSection.classList.add('hidden');
@@ -142,14 +151,16 @@ if (typeof AntifraudManager !== 'undefined') {
     // (Eğer zaten oy vermişse saniyeler içinde ekran değişecek)
     const voted = await Promise.race([
       votedPromise,
-      new Promise(resolve => setTimeout(() => resolve('timeout'), 4000)) // Daha kısa timeout
+      new Promise(resolve => setTimeout(() => resolve('timeout'), 8000)) // Güçsüz cihazlar için yeterli süre
     ]);
     
+    clearInterval(msgInterval);
     loadingOverlay.classList.add('hidden');
 
     if (voted === 'timeout') {
       console.warn("Antifraud: Warmup timeout. UI is ready.");
       voteSection.classList.remove('hidden');
+      requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
     } else if (voted) {
       if (typeof voted === 'object' && voted.data) {
         const d = voted.data;
@@ -164,9 +175,11 @@ if (typeof AntifraudManager !== 'undefined') {
     } else {
       // Sorun yok, oylamaya devam
       voteSection.classList.remove('hidden');
+      requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
     }
 
   } catch (e) {
+    clearInterval(msgInterval);
     console.error("Lazy Init Check failed:", e);
     loadingOverlay.classList.add('hidden');
 
@@ -182,6 +195,7 @@ if (typeof AntifraudManager !== 'undefined') {
 
     // Eğer Firestore kilitliyse bile (Adblock vb.) oylama ekranını açalım
     voteSection.classList.remove('hidden');
+    requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
   }
 })();
 
@@ -223,10 +237,10 @@ function renderCategory(animate) {
 
 function calcCardSize(candidateCount) {
   const vw = window.innerWidth;
-  const vh = window.innerHeight;
   const isMobile = vw <= 768;
 
   if (!isMobile) {
+    // Masaüstü: maks 6 sütun, 160-220px arası
     const availW = Math.min(vw - 64, 1260);
     const gap = 20;
     const maxCols = Math.min(candidateCount, 6);
@@ -234,20 +248,19 @@ function calcCardSize(candidateCount) {
     return Math.max(160, Math.min(w, 220));
   }
 
-  const chromeH = vw <= 400 ? 210 : 220;
-  const availH = Math.max(80, vh - chromeH);
-  const availW = vw - 20;
+  // Mobil: kesin sütun sayısı belirle
+  // ≤400px → max 2 sütun | 401-600px → max 3 sütun | 601-768px → max 3 sütun
+  const maxCols = vw <= 400 ? 2 : 3;
+  const cols = Math.min(candidateCount, maxCols);
   const gap = 10;
-  const infoH = vw <= 400 ? 40 : 48;
-  const aspect = 3 / 4;
-  const cols = 2;
-  const rows = Math.ceil(candidateCount / cols);
-  const wByWidth = (availW - gap * (cols - 1)) / cols;
-  const cardTotalH = (availH - gap * (rows - 1)) / rows;
-  const wByHeight = Math.max(0, cardTotalH - infoH) * aspect;
-  const w = Math.min(wByWidth, wByHeight);
-  return Math.max(80, Math.min(w, 160));
+  const padding = 16; // her iki yandan padding (8 + 8)
+  const availW = vw - padding * 2;
+  const cardW = (availW - gap * (cols - 1)) / cols;
+
+  // Minimum 100px, maximum 180px
+  return Math.max(100, Math.min(cardW, 180));
 }
+
 
 function populateGrid(cat, grid) {
   grid.innerHTML = '';
@@ -290,21 +303,8 @@ function populateGrid(cat, grid) {
       </div>
     `;
 
-    // Resim yukleme (Asenkron & Lazy Loading)
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            loadCandidateImage(card, candidate, cat.id);
-            observer.unobserve(card);
-          }
-        });
-      }, { rootMargin: '100px' });
-      observer.observe(card);
-    } else {
-      // Fallback for older browsers
-      loadCandidateImage(card, candidate, cat.id);
-    }
+    // Lazy loading yerine doğrudan başlat (AniListService zaten deduplication ve caching yapıyor)
+    loadCandidateImage(card, candidate, cat.id);
 
     card.addEventListener('click', () => selectCandidate(cat.id, candidate.id, card));
     grid.appendChild(card);
@@ -352,16 +352,22 @@ async function loadCandidateImage(card, candidate, categoryId) {
     });
     await Promise.all(promises);
     placeholder.style.display = 'none';
-  } else {
     // Tek resim
     const finalUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
     img.src = finalUrl;
-    img.onload = () => {
+    
+    // Zaten önbellekteyse onload tetiklenmeyebilir, hemen kontrol et
+    if (img.complete) {
       img.style.opacity = '1';
       placeholder.style.display = 'none';
-      // Fade-in effect for the whole wrapper if needed
       wrapper.style.backgroundColor = 'transparent';
-    };
+    } else {
+      img.onload = () => {
+        img.style.opacity = '1';
+        placeholder.style.display = 'none';
+        wrapper.style.backgroundColor = 'transparent';
+      };
+    }
   }
 }
 

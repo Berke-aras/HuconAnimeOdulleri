@@ -385,13 +385,15 @@ body::after {
 .category-content:not(.hidden) {
   display: flex !important;
 }
-
 @media (max-width: 768px) {
   .vote-section {
-    height: 100dvh;
-    height: 100vh;
-    min-height: 0;
-    overflow: hidden;
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .category-content {
+    min-height: auto;
   }
   .pill-nav-wrap { padding: 8px 8px 0; }
 }

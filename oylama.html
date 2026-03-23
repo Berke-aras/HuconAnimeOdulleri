@@ -5,19 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <title>Oylama - Anime Oylama</title>
+  <title>Oylama - HUCON'26 Anime Oylaması</title>
+  <meta name="description" content="HUCON'26 Anime Oylaması — Favori animeni, karakterini ve filmini seç! Oy ver, hatıra kartını indir ve paylaş.">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Anime Oylama — HUCON'26">
+  <meta property="og:description" content="Favori animeni, karakterini ve filmini seç! Oy ver, hatıra kartını indir ve paylaş.">
+  <meta property="og:image" content="img/og-cover.png">
+  <meta property="og:locale" content="tr_TR">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Anime Oylama — HUCON'26">
+  <meta name="twitter:image" content="img/og-cover.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+  <style>
+    /* Oylama ekranı açılış animasyonu */
+    #voteSection {
+      opacity: 0;
+      transition: opacity 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    #voteSection.visible { opacity: 1; }
+  </style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
 </head>
 <body>
   <!-- Loading -->
   <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner"></div>
-    <div class="loading-text">Kontrol ediliyor...</div>
+    <div class="loading-text" id="initLoadingText">Kontrol ediliyor...</div>
   </div>
 
   <!-- Hata Durumu -->
