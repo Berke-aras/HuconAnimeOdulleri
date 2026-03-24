@@ -374,58 +374,59 @@ body::after {
 .pill-nav-wrap {
   padding: 16px 16px 0;
   flex-shrink: 0;
+  position: relative;
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  /* Sag ve sol kenarlara fade efekti (transparanlik) vererek kaydirilabilirligi vurgulariz */
+  -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }
 
-.category-content {
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.category-content:not(.hidden) {
-  display: flex !important;
-}
 @media (max-width: 768px) {
-  .vote-section {
-    min-height: 100vh;
-    height: auto;
-    overflow-y: auto;
-    overflow-x: hidden;
+  .pill-nav-wrap { 
+    padding: 12px 0 0; 
+    /* Mobilde mask alanini daraltalim ki daha genis alan kaydirilsin */
+    -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+    mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
   }
-  .category-content {
-    min-height: auto;
-  }
-  .pill-nav-wrap { padding: 8px 8px 0; }
 }
 
-/* ============================================================
-   OYLAMA - PILL NAVIGASYON
-   ============================================================ */
 .pill-nav {
   display: flex;
-  gap: 6px;
-  padding: 6px;
+  gap: 8px;
+  padding: 8px;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  max-width: var(--max-width);
-  margin: 0 auto 8px;
   background: rgba(12, 12, 30, 0.5);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 50px;
   border: 1px solid var(--glass-border);
-  justify-content: center;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+}
+
+@media (max-width: 768px) {
+  .pill-nav {
+    border-radius: 0; /* Mobilde tam genislikte ekran kenarina yapisik daha iyi durur */
+    border-left: none;
+    border-right: none;
+    padding: 8px 16px;
+  }
 }
 
 .pill-nav::-webkit-scrollbar { display: none; }
 
 .pill-btn {
-  padding: 10px 20px;
+  padding: 10px 22px;
   border-radius: 50px;
   font-family: var(--font);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   border: none;
@@ -434,18 +435,22 @@ body::after {
   transition: var(--transition);
   white-space: nowrap;
   position: relative;
+  flex-shrink: 0;
+  scroll-snap-align: center;
 }
 
 .pill-btn:hover {
-  color: var(--text-secondary);
-  background: rgba(124, 58, 237, 0.08);
+  color: var(--text-primary);
+  background: rgba(124, 58, 237, 0.15);
+  transform: translateY(-1px);
 }
 
 .pill-btn.active {
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
   font-weight: 600;
-  box-shadow: 0 2px 12px var(--accent-glow);
+  box-shadow: 0 4px 16px var(--accent-glow);
+  transform: translateY(-1px);
 }
 
 .pill-btn.completed::after {
@@ -457,6 +462,7 @@ body::after {
   position: absolute;
   top: 6px;
   right: 6px;
+  box-shadow: 0 0 8px var(--accent-green);
 }
 
 /* ============================================================
@@ -472,16 +478,12 @@ body::after {
 
 .progress-info {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-bottom: 10px;
   font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
-.progress-info .category-name {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 .progress-bar {
@@ -682,9 +684,16 @@ body::after {
   display: flex;
   justify-content: center;
   gap: 16px;
-  padding: 10px 20px 16px;
+  padding: 24px 20px 16px;
   flex-wrap: wrap;
   flex-shrink: 0;
+  position: -webkit-sticky;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: linear-gradient(to top, var(--bg-primary) 60%, transparent);
+  /* Safe area insets for notches/home indicators on mobile */
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 /* ============================================================

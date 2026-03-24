@@ -79,11 +79,17 @@ function buildPillNav() {
 
 function updatePillNav() {
   const pills = document.querySelectorAll('.pill-btn');
+  let activePill = null;
   pills.forEach((pill, i) => {
-    pill.classList.toggle('active', i === currentCategoryIndex);
+    const isActive = i === currentCategoryIndex;
+    pill.classList.toggle('active', isActive);
     pill.classList.toggle('completed', !!selections[CATEGORIES[i].id] && i !== currentCategoryIndex);
+    if (isActive) activePill = pill;
   });
-  /* Automatic scroll removed: activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); */
+  
+  if (activePill) {
+    activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 }
 
 function jumpToCategory(index) {
@@ -203,7 +209,6 @@ function renderCategory(animate) {
   const cat = CATEGORIES[currentCategoryIndex];
   const total = CATEGORIES.length;
 
-  document.getElementById('progressCategoryName').textContent = cat.title;
   document.getElementById('progressCounter').textContent = `${currentCategoryIndex + 1} / ${total}`;
   document.getElementById('progressFill').style.width = `${((currentCategoryIndex + 1) / total) * 100}%`;
 
