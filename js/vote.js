@@ -284,6 +284,20 @@ function populateGrid(cat, grid) {
 
     const initials = escapeHTML(candidate.name.split(' ').map(w => w[0]).join('').substring(0, 2));
 
+    let extraHTML = '';
+    // Sadece OP ve ED kategorilerinde YouTube butonunu göster
+    if (cat.id === 'gorsel-isitsel-en-iyi-acilis-op' || cat.id === 'gorsel-isitsel-en-iyi-ending') {
+      const ytQuery = encodeURIComponent(candidate.name);
+      extraHTML = `
+        <button type="button" class="listen-btn" onclick="event.stopPropagation(); openYoutubeModal('${ytQuery}')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M21.582 6.186a2.766 2.766 0 0 0-1.946-1.954C17.918 3.75 12 3.75 12 3.75s-5.918 0-7.636.482a2.766 2.766 0 0 0-1.946 1.954C1.936 7.904 1.936 12 1.936 12s0 4.096.482 5.814a2.766 2.766 0 0 0 1.946 1.954c1.718.482 7.636.482 7.636.482s5.918 0 7.636-.482a2.766 2.766 0 0 0 1.946-1.954C22.064 16.096 22.064 12 22.064 12s0-4.096-.482-5.814zM9.914 15.112V8.888l5.808 3.116-5.808 3.108z"/>
+          </svg>
+          Dinle
+        </button>
+      `;
+    }
+
     card.innerHTML = `
       <div class="candidate-check">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -305,6 +319,7 @@ function populateGrid(cat, grid) {
       <div class="candidate-info">
         <h3>${escapeHTML(candidate.name)}</h3>
         <span class="anime-name">${escapeHTML(candidate.anime)}</span>
+        ${extraHTML}
       </div>
     `;
 
@@ -345,9 +360,9 @@ async function loadCandidateImage(card, candidate, categoryId) {
     const promises = imageUrl.map((url, index) => {
       return new Promise(resolve => {
         const sideImg = document.createElement('img');
-        sideImg.className = 'candidate-image';
+        sideImg.className = 'candidate-dual-half';
         sideImg.src = url;
-        sideImg.style.cssText = `width:50%; height:100%; object-fit:cover; transition: opacity 0.5s ease; opacity: 0; ${index === 0 ? 'border-right:1px solid rgba(255,255,255,0.1)' : ''}`;
+        sideImg.style.cssText = `transition: opacity 0.5s ease; opacity: 0; ${index === 0 ? 'border-right:1px solid rgba(255,255,255,0.1)' : ''}`;
         sideImg.onload = () => {
           sideImg.style.opacity = '1';
           resolve();
@@ -369,6 +384,28 @@ async function loadCandidateImage(card, candidate, categoryId) {
     };
     img.src = finalUrl;
   }
+}
+
+function openYoutubeModal(query) {
+  const modal = document.getElementById('youtubeModal');
+  const iframe = document.getElementById('youtubeIframe');
+  const extLink = document.getElementById('youtubeExternalLink');
+  
+  // Embed Youtube Search result using listType=search
+  iframe.src = `https://www.youtube-nocookie.com/embed?listType=search&list=${query}&autoplay=1`;
+  if (extLink) {
+    extLink.href = `https://www.youtube.com/results?search_query=${query}`;
+  }
+  modal.classList.remove('hidden');
+}
+
+function closeYoutubeModal() {
+  const modal = document.getElementById('youtubeModal');
+  const iframe = document.getElementById('youtubeIframe');
+  modal.classList.add('hidden');
+  setTimeout(() => {
+    iframe.src = ''; // Stop video matching animation time
+  }, 300);
 }
 
 function selectCandidate(categoryId, candidateId, cardElement) {

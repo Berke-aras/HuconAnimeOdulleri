@@ -182,9 +182,9 @@ const CATEGORIES = [
       { id: "dr-deniz-skinner-lazarus", name: "Dr. Deniz Skinner (Lazarus)", anime: "Lazarus", image: null },
       { id: "kibutsuji-muzan-kimetsu-no-yaiba-mugen-rassha-hen", name: "Kibutsuji Muzan (Kimetsu no Yaiba: Mugen Rassha-hen)", anime: "Kimetsu no Yaiba: Mugen Rassha-hen", image: null },
       { id: "all-for-one-my-hero-academia-final-season", name: "All For One (My Hero Academia FINAL SEASON)", anime: "My Hero Academia FINAL SEASON", image: null },
-      { id: "white-rabbit-fushigi-no-kuni-de-alice-to-dive-in-wonderland", name: "White Rabbit (Fushigi no Kuni de Alice to: Dive in Wonderland)", anime: "Fushigi no Kuni de Alice to: Dive in Wonderland", image: null },
+      { id: "white-rabbit-fushigi-no-kuni-de-alice-to-dive-in-wonderland", name: "White Rabbit (Fushigi no Kuni de Alice to: Dive in Wonderland)", anime: "Fushigi no Kuni de Alice to: Dive in Wonderland", image: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx179379-3O4y5Xq4Y7wR.png" },
       { id: "kaiju-no-9-kaijuu-8-gou-2nd-season", name: "Kaiju No.9 (Kaijuu 8-gou 2nd Season)", anime: "Kaijuu 8-gou 2nd Season", image: null },
-      { id: "xeno-dr-stone-science-future", name: "Xeno (Dr. STONE: SCIENCE FUTURE)", anime: "Dr. STONE: SCIENCE FUTURE", image: null },
+      { id: "xeno-dr-stone-science-future", name: "Xeno (Dr. STONE: SCIENCE FUTURE)", anime: "Dr. STONE: SCIENCE FUTURE", image: "https://s4.anilist.co/file/anilistcdn/character/large/b186479-M73Q713UfEaI.png" },
       { id: "ant-king-houston-wingfield-solo-leveling-2-sezon", name: "Ant King (Houston Wingfield Solo Leveling 2. Sezon)", anime: "Solo Leveling 2. Sezon", image: null }
     ]
   },

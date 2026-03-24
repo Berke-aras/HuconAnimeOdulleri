@@ -233,6 +233,23 @@
     <div class="loading-text" style="color: var(--text-primary); font-weight: 600;">Oylariniz gonderiliyor...</div>
   </div>
 
+  <!-- YouTube Modal -->
+  <div id="youtubeModal" class="modal-overlay hidden" onclick="closeYoutubeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeYoutubeModal()">&times;</button>
+      <div class="video-container">
+        <iframe id="youtubeIframe" width="100%" height="100%" src="" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+      <div style="padding: 16px; text-align: center; background: var(--bg-card-solid); border-top: 1px solid rgba(255,255,255,0.05);">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Eğer video kısıtlamalardan dolayı oynatılamıyorsa (Hata 150/153):</p>
+        <a id="youtubeExternalLink" href="#" target="_blank" class="btn btn-secondary btn-small" style="display: inline-flex; align-items: center; gap: 8px;">
+          <svg style="color: #ff4e4e" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21.582 6.186a2.766 2.766 0 0 0-1.946-1.954C17.918 3.75 12 3.75 12 3.75s-5.918 0-7.636.482a2.766 2.766 0 0 0-1.946 1.954C1.936 7.904 1.936 12 1.936 12s0 4.096.482 5.814a2.766 2.766 0 0 0 1.946 1.954c1.718.482 7.636.482 7.636.482s5.918 0 7.636-.482a2.766 2.766 0 0 0 1.946-1.954C22.064 16.096 22.064 12 22.064 12s0-4.096-.482-5.814zM9.914 15.112V8.888l5.808 3.116-5.808 3.108z"/></svg>
+          YouTube'da Aç
+        </a>
+      </div>
+    </div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://openfpcdn.io/fingerprintjs/v3/i.min.js"></script>

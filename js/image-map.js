@@ -106,18 +106,54 @@ const IMAGE_MAP = {
   "karakter-odakli-en-iyi-antagonist_kaiju-no-9-kaijuu-8-gou-2nd-season": "img/candidates/karakter-odakli-en-iyi-antagonist_kaiju-no-9-kaijuu-8-gou-2nd-season.jpg",
   "karakter-odakli-en-iyi-antagonist_xeno-dr-stone-science-future": "img/candidates/karakter-odakli-en-iyi-antagonist_xeno-dr-stone-science-future.png",
   "karakter-odakli-en-iyi-antagonist_ant-king-houston-wingfield-solo-leveling-2-sezon": "img/candidates/karakter-odakli-en-iyi-antagonist_ant-king-houston-wingfield-solo-leveling-2-sezon.png",
-  "karakter-odakli-yilin-cifti_denji-reze-chainsaw-man-reze-arc": "img/candidates/karakter-odakli-yilin-cifti_denji-reze-chainsaw-man-reze-arc.png",
-  "karakter-odakli-yilin-cifti_ken-takakura-momo-ayase-dandadan": "img/candidates/karakter-odakli-yilin-cifti_ken-takakura-momo-ayase-dandadan.jpg",
-  "karakter-odakli-yilin-cifti_maomao-jinshi-the-apothecary-diaries": "img/candidates/karakter-odakli-yilin-cifti_maomao-jinshi-the-apothecary-diaries.jpg",
-  "karakter-odakli-yilin-cifti_kaoruko-waguri-rintarou-tsumugi-fragrant-flower": "img/candidates/karakter-odakli-yilin-cifti_kaoruko-waguri-rintarou-tsumugi-fragrant-flower.jpg",
-  "karakter-odakli-yilin-cifti_marin-kitagawa-wakana-gojou-my-dress-up-darling": "img/candidates/karakter-odakli-yilin-cifti_marin-kitagawa-wakana-gojou-my-dress-up-darling.jpg",
-  "karakter-odakli-yilin-cifti_nico-wakatsuki-morihito-otogi-witch-watch": "img/candidates/karakter-odakli-yilin-cifti_nico-wakatsuki-morihito-otogi-witch-watch.jpg",
-  "karakter-odakli-yilin-cifti_nazuna-nanakusa-kou-yamori-call-of-the-night": "img/candidates/karakter-odakli-yilin-cifti_nazuna-nanakusa-kou-yamori-call-of-the-night.jpg",
-  "karakter-odakli-yilin-cifti_sakuta-azusagawa-mai-sakurajima-rascal-does-not-dream-of-santa-claus": "img/candidates/karakter-odakli-yilin-cifti_sakuta-azusagawa-mai-sakurajima-rascal-does-not-dream-of-santa-claus.png",
-  "karakter-odakli-yilin-cifti_reiko-kujirai-hajime-kudou-kowloon-generic-romance": "img/candidates/karakter-odakli-yilin-cifti_reiko-kujirai-hajime-kudou-kowloon-generic-romance.jpg",
-  "karakter-odakli-yilin-cifti_yoshiki-tsujinaka-hikaru-indou-the-summer-hikaru-died": "img/candidates/karakter-odakli-yilin-cifti_yoshiki-tsujinaka-hikaru-indou-the-summer-hikaru-died.jpg",
-  "karakter-odakli-yilin-cifti_yor-forger-loid-forger-spy-family": "img/candidates/karakter-odakli-yilin-cifti_yor-forger-loid-forger-spy-family.jpg",
-  "karakter-odakli-yilin-cifti_kiyoka-kudou-miyo-saimori-my-happy-marriage": "img/candidates/karakter-odakli-yilin-cifti_kiyoka-kudou-miyo-saimori-my-happy-marriage.png",
+  "karakter-odakli-yilin-cifti_denji-reze-chainsaw-man-reze-arc": [
+    "img/candidates/karakter-odakli-yilin-cifti_denji-reze-chainsaw-man-reze-arc_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_denji-reze-chainsaw-man-reze-arc_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_ken-takakura-momo-ayase-dandadan": [
+    "img/candidates/karakter-odakli-yilin-cifti_ken-takakura-momo-ayase-dandadan_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_ken-takakura-momo-ayase-dandadan_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_maomao-jinshi-the-apothecary-diaries": [
+    "img/candidates/karakter-odakli-yilin-cifti_maomao-jinshi-the-apothecary-diaries_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_maomao-jinshi-the-apothecary-diaries_1.jpg"
+  ],
+  "karakter-odakli-yilin-cifti_kaoruko-waguri-rintarou-tsumugi-fragrant-flower": [
+    "img/candidates/karakter-odakli-yilin-cifti_kaoruko-waguri-rintarou-tsumugi-fragrant-flower_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_kaoruko-waguri-rintarou-tsumugi-fragrant-flower_1.jpg"
+  ],
+  "karakter-odakli-yilin-cifti_marin-kitagawa-wakana-gojou-my-dress-up-darling": [
+    "img/candidates/karakter-odakli-yilin-cifti_marin-kitagawa-wakana-gojou-my-dress-up-darling_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_marin-kitagawa-wakana-gojou-my-dress-up-darling_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_nico-wakatsuki-morihito-otogi-witch-watch": [
+    "img/candidates/karakter-odakli-yilin-cifti_nico-wakatsuki-morihito-otogi-witch-watch_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_nico-wakatsuki-morihito-otogi-witch-watch_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_nazuna-nanakusa-kou-yamori-call-of-the-night": [
+    "img/candidates/karakter-odakli-yilin-cifti_nazuna-nanakusa-kou-yamori-call-of-the-night_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_nazuna-nanakusa-kou-yamori-call-of-the-night_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_sakuta-azusagawa-mai-sakurajima-rascal-does-not-dream-of-santa-claus": [
+    "img/candidates/karakter-odakli-yilin-cifti_sakuta-azusagawa-mai-sakurajima-rascal-does-not-dream-of-santa-claus_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_sakuta-azusagawa-mai-sakurajima-rascal-does-not-dream-of-santa-claus_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_reiko-kujirai-hajime-kudou-kowloon-generic-romance": [
+    "img/candidates/karakter-odakli-yilin-cifti_reiko-kujirai-hajime-kudou-kowloon-generic-romance_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_reiko-kujirai-hajime-kudou-kowloon-generic-romance_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_yoshiki-tsujinaka-hikaru-indou-the-summer-hikaru-died": [
+    "img/candidates/karakter-odakli-yilin-cifti_yoshiki-tsujinaka-hikaru-indou-the-summer-hikaru-died_0.jpg",
+    "img/candidates/karakter-odakli-yilin-cifti_yoshiki-tsujinaka-hikaru-indou-the-summer-hikaru-died_1.jpg"
+  ],
+  "karakter-odakli-yilin-cifti_yor-forger-loid-forger-spy-family": [
+    "img/candidates/karakter-odakli-yilin-cifti_yor-forger-loid-forger-spy-family_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_yor-forger-loid-forger-spy-family_1.png"
+  ],
+  "karakter-odakli-yilin-cifti_kiyoka-kudou-miyo-saimori-my-happy-marriage": [
+    "img/candidates/karakter-odakli-yilin-cifti_kiyoka-kudou-miyo-saimori-my-happy-marriage_0.png",
+    "img/candidates/karakter-odakli-yilin-cifti_kiyoka-kudou-miyo-saimori-my-happy-marriage_1.png"
+  ],
   "karakter-odakli-en-iyi-karakter-dizayni_dandadan": "img/candidates/karakter-odakli-en-iyi-karakter-dizayni_dandadan.jpg",
   "karakter-odakli-en-iyi-karakter-dizayni_demon-slayer-kimetsu-no-yaiba-infinity-castle": "img/candidates/karakter-odakli-en-iyi-karakter-dizayni_demon-slayer-kimetsu-no-yaiba-infinity-castle.jpg",
   "karakter-odakli-en-iyi-karakter-dizayni_kaiju-no-8": "img/candidates/karakter-odakli-en-iyi-karakter-dizayni_kaiju-no-8.jpg",
