@@ -289,7 +289,7 @@ function populateGrid(cat, grid) {
     if (cat.id === 'gorsel-isitsel-en-iyi-acilis-op' || cat.id === 'gorsel-isitsel-en-iyi-ending') {
       const ytQuery = encodeURIComponent(candidate.name);
       extraHTML = `
-        <button type="button" class="listen-btn" onclick="event.stopPropagation(); openYoutubeModal('${ytQuery}')">
+        <button type="button" class="listen-btn" onclick="event.stopPropagation(); openVideoModal('${candidate.id}')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none">
             <path d="M21.582 6.186a2.766 2.766 0 0 0-1.946-1.954C17.918 3.75 12 3.75 12 3.75s-5.918 0-7.636.482a2.766 2.766 0 0 0-1.946 1.954C1.936 7.904 1.936 12 1.936 12s0 4.096.482 5.814a2.766 2.766 0 0 0 1.946 1.954c1.718.482 7.636.482 7.636.482s5.918 0 7.636-.482a2.766 2.766 0 0 0 1.946-1.954C22.064 16.096 22.064 12 22.064 12s0-4.096-.482-5.814zM9.914 15.112V8.888l5.808 3.116-5.808 3.108z"/>
           </svg>
@@ -386,25 +386,27 @@ async function loadCandidateImage(card, candidate, categoryId) {
   }
 }
 
-function openYoutubeModal(query) {
-  const modal = document.getElementById('youtubeModal');
-  const iframe = document.getElementById('youtubeIframe');
-  const extLink = document.getElementById('youtubeExternalLink');
+function openVideoModal(candidateId) {
+  const modal = document.getElementById('videoModal');
+  const video = document.getElementById('localVideoPlayer');
   
-  // Embed Youtube Search result using listType=search
-  iframe.src = `https://www.youtube-nocookie.com/embed?listType=search&list=${query}&autoplay=1`;
-  if (extLink) {
-    extLink.href = `https://www.youtube.com/results?search_query=${query}`;
-  }
+  video.src = `video/${candidateId}.mp4`;
+  video.volume = 0.3; // Ses %30'dan başlar
   modal.classList.remove('hidden');
+  
+  // Try autoplaying
+  video.play().catch(e => console.log('Otomatik oynatma tarayıcı tarafından engellendi:', e));
 }
 
-function closeYoutubeModal() {
-  const modal = document.getElementById('youtubeModal');
-  const iframe = document.getElementById('youtubeIframe');
+function closeVideoModal() {
+  const modal = document.getElementById('videoModal');
+  const video = document.getElementById('localVideoPlayer');
   modal.classList.add('hidden');
+  
+  // Fade out animasyonu tamamlanınca durdur
   setTimeout(() => {
-    iframe.src = ''; // Stop video matching animation time
+    video.pause();
+    video.src = ''; 
   }, 300);
 }
 

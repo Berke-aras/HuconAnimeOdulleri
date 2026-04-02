@@ -748,22 +748,46 @@ body::after {
 .modal-overlay:not(.hidden) .modal-content {
   transform: translateY(0);
 }
-.modal-close {
-  position: absolute;
-  top: -40px;
-  right: 0;
-  background: transparent;
-  border: none;
+
+.modal-close-global {
+  position: fixed;
+  top: 25px;
+  right: 25px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  font-size: 2.5rem;
+  font-size: 2rem;
   cursor: pointer;
   z-index: 10000;
   line-height: 1;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
+.modal-close-global:hover {
+  background: rgba(255, 60, 60, 0.8);
+  transform: scale(1.08);
+  border-color: rgba(255, 60, 60, 1);
+}
+
 @media (max-width: 768px) {
-  .modal-close { top: 10px; right: 10px; text-shadow: 0 0 10px #000; }
+  .modal-close-global {
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    font-size: 1.6rem;
+  }
   .modal-content { border-radius: 12px; }
+  .video-container video { border-radius: 12px !important; }
 }
+
 .video-container {
   position: relative;
   padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
