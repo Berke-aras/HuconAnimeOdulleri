@@ -24,7 +24,9 @@ const AntifraudManager = (() => {
     hardwareHashes: null,
     hardwareSignature: null,
     deviceId: null,
-    warmupPromise: null
+    warmupPromise: null,
+    rawSignals: null,
+    rawSignalsPromise: null
   };
 
   async function sha256(message) {
@@ -107,6 +109,38 @@ const AntifraudManager = (() => {
     return await sha256(components.join("|||"));
   }
 
+  // YENİ: Tüm sinyalleri tek sefer paralel topla (çift toplama sorununu çözer)
+  async function collectAllSignals() {
+    if (_cache.rawSignals) return _cache.rawSignals;
+    if (_cache.rawSignalsPromise) return _cache.rawSignalsPromise;
+
+    _cache.rawSignalsPromise = (async () => {
+      const [webglAdv, audio, speech, webrtc, webglBasic, canvas, font] =
+        await Promise.allSettled([
+          getAdvancedWebGLFingerprint(),
+          getAudioContextFingerprint(),
+          getSpeechVoicesFingerprint(),
+          getWebRTCIP(),
+          Promise.resolve(getWebGLFingerprint()),
+          Promise.resolve(getCanvasFingerprint()),
+          Promise.resolve(getFontFingerprint())
+        ]);
+
+      _cache.rawSignals = {
+        webglAdvanced: webglAdv.status === 'fulfilled' ? webglAdv.value : 'err',
+        audio: audio.status === 'fulfilled' ? audio.value : 'err',
+        speech: speech.status === 'fulfilled' ? speech.value : 'err',
+        webrtc: webrtc.status === 'fulfilled' ? webrtc.value : 'err',
+        webglBasic: webglBasic.status === 'fulfilled' ? webglBasic.value : 'err',
+        canvas: canvas.status === 'fulfilled' ? canvas.value : 'err',
+        font: font.status === 'fulfilled' ? font.value : 'err'
+      };
+      return _cache.rawSignals;
+    })();
+
+    return _cache.rawSignalsPromise;
+  }
+
   async function getVisitorId() {
     if (_cache.visitorId) return _cache.visitorId;
 
@@ -125,14 +159,9 @@ const AntifraudManager = (() => {
       baseFp = await generateFallbackFingerprint();
     }
 
-    // Ileri Donanim Fingerprintlerini bekle
-    const signals = await Promise.allSettled([
-      getAdvancedWebGLFingerprint(),
-      getAudioContextFingerprint(),
-      getSpeechVoicesFingerprint()
-    ]);
-
-    const sigData = signals.map(s => s.status === 'fulfilled' ? s.value : 'err');
+    // Sinyalleri merkezi cache'den oku (collectAllSignals paralel toplamış olacak)
+    const raw = await collectAllSignals();
+    const sigData = [raw.webglAdvanced, raw.audio, raw.speech];
     const combinedRaw = baseFp + "|" + sigData.join("|");
     _cache.visitorId = await sha256(combinedRaw);
     return _cache.visitorId;
@@ -142,8 +171,8 @@ const AntifraudManager = (() => {
 
   async function getAdvancedWebGLFingerprint() {
     return new Promise((resolve, reject) => {
-      // Eskiden 30 saniyeydi, zayıf cihazı gereksiz yere tıkamasın diye 8 saniyeye indirildi
-      const timeout = setTimeout(() => resolve("webgl-timeout"), 8000);
+      // Arka planda paralel çalışır, oylama ~2dk sürer — bol zaman var
+      const timeout = setTimeout(() => resolve("webgl-timeout"), 15000);
       try {
         const canvas = document.createElement("canvas");
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -250,8 +279,8 @@ const AntifraudManager = (() => {
 
   async function getAudioContextFingerprint() {
     return new Promise((resolve, reject) => {
-      // Arka planda calistigi icin 12 saniyelik genis bir zaman taniyoruz
-      const timeout = setTimeout(() => resolve("audio-timeout"), 12000);
+      // Arka planda paralel çalışır, oylama ~2dk sürer — bol zaman var
+      const timeout = setTimeout(() => resolve("audio-timeout"), 15000);
 
       try {
         const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -315,7 +344,7 @@ const AntifraudManager = (() => {
   // SpeechSynthesis API ses listesi - tarayiciya ozel entropy kaynagi
   function getSpeechVoicesFingerprint() {
     return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve("speech-timeout"), 500);
+      const timeout = setTimeout(() => resolve("speech-timeout"), 5000);
       try {
         if (!window.speechSynthesis) {
           clearTimeout(timeout);
@@ -341,7 +370,7 @@ const AntifraudManager = (() => {
 
   function getWebRTCIP() {
     return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve("webrtc-timeout"), 800);
+      const timeout = setTimeout(() => resolve("webrtc-timeout"), 3000);
       try {
         const RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
         if (!RTCPeerConnection) return resolve("no-webrtc");
@@ -476,33 +505,17 @@ const AntifraudManager = (() => {
   async function generateHardwareHashes() {
     if (_cache.hardwareHashes) return _cache.hardwareHashes;
 
-    // Helper: Tarayıcının nefes alması için asenkron uyku
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    // ZAYIF CİHAZ YIELDING: Ağır işleri aynı anda başlatmak yerine sırayla 
-    // ve aralarda Main Thread'i serbest bırakarak (uyuyarak) yapıyoruz.
-    const audioRaw = await getAudioContextFingerprint();
-    await sleep(20);
-    const fontRaw = await getFontFingerprint();
-    await sleep(20);
-    const voicesRaw = await getSpeechVoicesFingerprint();
-    await sleep(20);
-    const webrtcRaw = await getWebRTCIP();
-    await sleep(20);
-    const webglHardware = await getWebGLFingerprint();
-    await sleep(20);
-    const webglAdvanced = await getAdvancedWebGLFingerprint(); // Ağır işlem
-    await sleep(20);
-    const canvasRaw = await getCanvasFingerprint();
+    // Merkezi sinyal cache'den oku (collectAllSignals() paralel toplar)
+    const raw = await collectAllSignals();
 
     // Hashes (SHA-256 Crypto API nispeten hızlıdır, promise.all ile kurtarırız)
     const [audioHash, fontHash, voicesHash, localIpHash, canvasHash, hardwareHashBase] = await Promise.all([
-      sha256(audioRaw),
-      sha256(fontRaw),
-      sha256(voicesRaw),
-      sha256(webrtcRaw),
-      sha256(canvasRaw),
-      sha256(webglHardware + "|||" + webglAdvanced)
+      sha256(raw.audio),
+      sha256(raw.font),
+      sha256(raw.speech),
+      sha256(raw.webrtc),
+      sha256(raw.canvas),
+      sha256(raw.webglBasic + "|||" + raw.webglAdvanced)
     ]);
 
     // Kaba ekran/donanim profili + Islemci Tick (Clock Drift)
@@ -1193,17 +1206,22 @@ const AntifraudManager = (() => {
   }
   async function warmup() {
     if (_cache.warmupPromise) return _cache.warmupPromise;
+    _warmupReady = true; // Hemen hazır işaretle (submitVote zaten kendi içinde sinyalleri bekler)
 
     _cache.warmupPromise = (async () => {
       console.log("AntifraudManager: Sinyaller toplaniyor...");
       try {
+        // Tüm sinyalleri paralel topla (collectAllSignals merkezi cache kullanır)
+        await Promise.allSettled([
+          collectAllSignals(),
+          getIPHash()
+        ]);
+        // collectAllSignals bittikten sonra türev hash'leri de oluştur
         await Promise.allSettled([
           getVisitorId(),
           generateHardwareHashes(),
-          generateDeviceFingerprint(),
-          getIPHash()
+          generateDeviceFingerprint()
         ]);
-        _warmupReady = true;
         console.log("AntifraudManager: Sinyaller hazir.");
       } catch (e) {
         console.warn("AntifraudManager: Bazi sinyaller toplanamadi:", e);

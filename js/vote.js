@@ -127,67 +127,51 @@ if (typeof AntifraudManager !== 'undefined') {
   }, 1800);
 
   console.log("Vote UI: Initializing...");
-  // --- LAZY INITIALIZATION ---
+  // --- INSTANT UI LOADING ---
   // 1. UI'yi hemen hazırla
   buildPillNav();
   renderCategory(false);
   console.log("Vote UI: Initial rendering complete.");
   
-  // 2. Arka plan kontrollerini yaparken loading'i kaldır (Hızlı yükleme hissi)
-  // Sadece oylamanın başlangıç zamanını kaydet
+  // 2. Oylama başlangıç zamanını kaydet
   if (typeof AntifraudManager !== 'undefined') {
     AntifraudManager.markVotingStarted();
   }
 
-  try {
-    // 3. Hızlı Yerel Kontrol (Cookie check)
-    const hasVotedFlag = document.cookie.includes('animeoy_v');
-    if (hasVotedFlag) {
-      clearInterval(msgInterval);
-      loadingOverlay.classList.add('hidden');
-      alreadyVotedSection.classList.remove('hidden');
-      voteSection.classList.add('hidden');
-      return;
-    }
+  // 3. Hızlı Yerel Kontrol (Cookie + localStorage)
+  const _k = btoa("animeoy").slice(0, 6);
+  const hasVotedFlag = document.cookie.includes(_k + '_v') || 
+                       (function() { try { return localStorage.getItem(_k + '_v') !== null; } catch(e) { return false; } })();
 
-    // 4. Derin Kontrollere sessizce başla (Loading'i biraz daha tutabiliriz ama UI arkada hazır)
-    const votedPromise = AntifraudManager.hasAlreadyVoted();
-    
-    // UI'yi oylamaya hazır hale getir ama henüz oylama ekranını tam açma 
-    // (Eğer zaten oy vermişse saniyeler içinde ekran değişecek)
-    const voted = await Promise.race([
-      votedPromise,
-      new Promise(resolve => setTimeout(() => resolve('timeout'), 8000)) // Güçsüz cihazlar için yeterli süre
-    ]);
-    
+  if (hasVotedFlag) {
     clearInterval(msgInterval);
     loadingOverlay.classList.add('hidden');
+    alreadyVotedSection.classList.remove('hidden');
+    voteSection.classList.add('hidden');
+    return;
+  }
 
-    if (voted === 'timeout') {
-      console.warn("Antifraud: Warmup timeout. UI is ready.");
-      voteSection.classList.remove('hidden');
-      requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
-    } else if (voted) {
+  // 4. Loading'i kaldır, oylama UI'sini HEMEN aç (düşük güçlü cihazlarda bekleme yok)
+  clearInterval(msgInterval);
+  loadingOverlay.classList.add('hidden');
+  voteSection.classList.remove('hidden');
+  requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
+
+  // 5. Arka planda derin kontrol yap (UI açık iken sessizce çalışır)
+  try {
+    const voted = await AntifraudManager.hasAlreadyVoted();
+    if (voted) {
+      // Kullanıcı henüz oy vermeden yakaladık — hatıra sayfasına yönlendir
       if (typeof voted === 'object' && voted.data) {
         const d = voted.data;
         const accessToken = await AntifraudManager.generateAccessToken(d.visitorId, d.cardNumber);
         AntifraudManager.storeVoteData(d.selections, d.cardNumber, accessToken);
-        document.getElementById('identityRecoveredSection').classList.remove('hidden');
-      } else {
-        alreadyVotedSection.classList.remove('hidden');
       }
-      voteSection.classList.add('hidden'); // Oylama alanını sakla
-      return;
-    } else {
-      // Sorun yok, oylamaya devam
-      voteSection.classList.remove('hidden');
-      requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
+      // Yerel bayrakları güncelle ve hatıra sayfasına git
+      window.location.href = 'hatira.html';
     }
-
   } catch (e) {
-    clearInterval(msgInterval);
-    console.error("Lazy Init Check failed:", e);
-    loadingOverlay.classList.add('hidden');
+    console.warn("Background vote check failed:", e);
 
     const code = e.code || "";
     const msg = e.message || "";
@@ -196,12 +180,8 @@ if (typeof AntifraudManager !== 'undefined') {
     if (code === 'resource-exhausted' || code === 'unavailable' || msg.includes('quota') || msg.includes('limit')) {
       document.getElementById('systemBusySection').classList.remove('hidden');
       voteSection.classList.add('hidden');
-      return;
     }
-
-    // Eğer Firestore kilitliyse bile (Adblock vb.) oylama ekranını açalım
-    voteSection.classList.remove('hidden');
-    requestAnimationFrame(() => requestAnimationFrame(() => voteSection.classList.add('visible')));
+    // Diğer hatalarda oylama UI'si açık kalır (zaten açık)
   }
 })();
 
