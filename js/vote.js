@@ -77,7 +77,7 @@ function buildPillNav() {
   });
 }
 
-function updatePillNav() {
+function updatePillNav(scrollToActive = false) {
   const pills = document.querySelectorAll('.pill-btn');
   let activePill = null;
   pills.forEach((pill, i) => {
@@ -87,7 +87,7 @@ function updatePillNav() {
     if (isActive) activePill = pill;
   });
   
-  if (activePill) {
+  if (activePill && scrollToActive) {
     activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 }
@@ -210,7 +210,7 @@ function renderCategory(animate) {
     populateGrid(cat, grid);
   }
 
-  updatePillNav();
+  updatePillNav(true);
 
   document.getElementById('prevBtn').style.visibility = currentCategoryIndex === 0 ? 'hidden' : 'visible';
   updateNextButton();
@@ -290,7 +290,7 @@ function populateGrid(cat, grid) {
             class="candidate-image"
             src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
             alt="${escapeHTML(candidate.name)}"
-            style="opacity: 0; transition: opacity 0.5s ease; width:100%; height:100%; object-fit:cover;"
+            style="opacity: 0; transition: opacity 0.5s ease; width:100%; height:100%; object-fit:cover; object-position:${candidate.position || 'center'};"
             onerror="this.style.display='none'; if(!this.parentElement.querySelector('.candidate-image-placeholder')) this.parentElement.insertAdjacentHTML('beforeend', '<div class=\'candidate-image-placeholder\' style=\'display:flex;\'>${initials}</div>');"
           >
         </div>
@@ -394,11 +394,9 @@ function selectCandidate(categoryId, candidateId, cardElement) {
   selections[categoryId] = candidateId;
   document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
   cardElement.classList.add('selected');
+  
   updateNextButton();
-  updatePillNav();
-
-  updateNextButton();
-  updatePillNav();
+  updatePillNav(false);
 }
 
 function updateNextButton() {
@@ -468,6 +466,7 @@ function showConfirmScreen() {
         class="confirm-item-img"
         src="${escapeHTML(candidate.image)}"
         alt="${escapeHTML(candidate.name)}"
+        style="object-fit: cover; object-position:${candidate.position || 'center'};"
         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
       >
       <div class="confirm-item-img-placeholder" style="display:none;">${initials}</div>

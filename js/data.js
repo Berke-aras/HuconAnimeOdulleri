@@ -147,7 +147,7 @@ const CATEGORIES = [
       { id: "marin-kitagawa-my-dress-up-darling", name: "Marin Kitagawa (My Dress-Up Darling)", anime: "My Dress-Up Darling", image: null },
       { id: "shinra-kusakabe-fire-force", name: "Shinra Kusakabe (Fire Force)", anime: "Fire Force", image: null },
       { id: "izuku-midoriya-my-hero-academia", name: "Izuku Midoriya (My Hero Academia)", anime: "My Hero Academia", image: null },
-      { id: "x-to-be-hero-x", name: "X (To Be Hero X)", anime: "To Be Hero X", image: null },
+      { id: "x-to-be-hero-x", name: "X (To Be Hero X)", anime: "To Be Hero X", image: "img/x-to-be-hero-x.png", position: "top" },
       { id: "senkuu-ishigami-dr-stone-science-future", name: "Senkuu Ishigami (Dr. STONE: SCIENCE FUTURE)", anime: "Dr. STONE: SCIENCE FUTURE", image: null },
       { id: "klein-moretti-lord-of-mysteries", name: "Klein Moretti (Lord of Mysteries)", anime: "Lord of Mysteries", image: null }
     ]
@@ -179,12 +179,11 @@ const CATEGORIES = [
       { id: "kei-uzuki-sakamoto-days", name: "Kei Uzuki (Sakamoto Days)", anime: "Sakamoto Days", image: null },
       { id: "reze-chainsaw-man-reze-arc", name: "Reze (Chainsaw Man – The Movie: Reze Arc)", anime: "Chainsaw Man – The Movie: Reze Arc", image: null },
       { id: "jabber-wonger-gachiakuta", name: "Jabber Wonger (Gachiakuta)", anime: "Gachiakuta", image: null },
-      { id: "dr-deniz-skinner-lazarus", name: "Dr. Deniz Skinner (Lazarus)", anime: "Lazarus", image: null },
+      { id: "dr-deniz-skinner-lazarus", name: "Dr. Deniz Skinner (Lazarus)", anime: "Lazarus", image: "img/dr-deniz-skinner-lazarus.png", position: "top" },
       { id: "kibutsuji-muzan-kimetsu-no-yaiba-mugen-rassha-hen", name: "Kibutsuji Muzan (Kimetsu no Yaiba: Mugen Rassha-hen)", anime: "Kimetsu no Yaiba: Mugen Rassha-hen", image: null },
       { id: "all-for-one-my-hero-academia-final-season", name: "All For One (My Hero Academia FINAL SEASON)", anime: "My Hero Academia FINAL SEASON", image: null },
-      { id: "white-rabbit-fushigi-no-kuni-de-alice-to-dive-in-wonderland", name: "White Rabbit (Fushigi no Kuni de Alice to: Dive in Wonderland)", anime: "Fushigi no Kuni de Alice to: Dive in Wonderland", image: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx179379-3O4y5Xq4Y7wR.png" },
       { id: "kaiju-no-9-kaijuu-8-gou-2nd-season", name: "Kaiju No.9 (Kaijuu 8-gou 2nd Season)", anime: "Kaijuu 8-gou 2nd Season", image: null },
-      { id: "xeno-dr-stone-science-future", name: "Xeno (Dr. STONE: SCIENCE FUTURE)", anime: "Dr. STONE: SCIENCE FUTURE", image: "https://s4.anilist.co/file/anilistcdn/character/large/b186479-M73Q713UfEaI.png" },
+      { id: "xeno-dr-stone-science-future", name: "Xeno (Dr. STONE: SCIENCE FUTURE)", anime: "Dr. STONE: SCIENCE FUTURE", image: "img/xeno-dr-stone-science-future.png", position: "top" },
       { id: "ant-king-houston-wingfield-solo-leveling-2-sezon", name: "Ant King (Houston Wingfield Solo Leveling 2. Sezon)", anime: "Solo Leveling 2. Sezon", image: null }
     ]
   },
@@ -319,7 +318,6 @@ const CATEGORIES = [
       { id: "im-getting-married-to-a-girl-i-hate-in-my-class", name: "I'm Getting Married to a Girl I Hate in My Class", anime: "I'm Getting Married to a Girl I Hate in My Class", image: null },
       { id: "the-100-girlfriends-who-really-love-you-season-2", name: "The 100 Girlfriends Who Really, Really, Really, Really, Really Love You Season 2", anime: "The 100 Girlfriends Who Really, Really, Really, Really, Really Love You Season 2", image: null },
       { id: "rascal-does-not-dream-of-santa-claus", name: "Rascal Does Not Dream of Santa Claus", anime: "Rascal Does Not Dream of Santa Claus", image: null },
-      { id: "witch-watch", name: "Witch Watch", anime: "Witch Watch", image: null },
       { id: "my-dress-up-darling-season-2", name: "My Dress-Up Darling Season 2", anime: "My Dress-Up Darling Season 2", image: null },
       { id: "the-fragrant-flower-blooms-with-dignity", name: "The Fragrant Flower Blooms with Dignity", anime: "The Fragrant Flower Blooms with Dignity", image: null }
     ]
@@ -386,14 +384,14 @@ const CATEGORIES = [
     title: "Yılın En İyi \"Must Protect At All Costs\" Karakteri",
     icon: "star",
     candidates: [
-      { id: "anya-forger-spy-family-season-2", name: "Anya Forger (SPY×FAMILY Season 2)", anime: "SPY×FAMILY Season 2", image: null },
-      { id: "okarun-dandadan", name: "Okarun (Dandadan)", anime: "Dandadan", image: null },
-      { id: "anya-forger-spy-family", name: "Anya Forger (SPY×FAMILY)", anime: "SPY×FAMILY", image: null },
-      { id: "angel-chainsaw-man", name: "Angel (Chainsaw Man)", anime: "Chainsaw Man", image: null },
-      { id: "takopi-takopii-no-genzai", name: "Takopi (Takopii no Genzai)", anime: "Takopii no Genzai", image: null },
-      { id: "nezuko-demon-slayer", name: "Nezuko (Demon Slayer)", anime: "Demon Slayer", image: null },
-      { id: "lishu-the-apothecary-diaries", name: "Lishu (The Apothecary Diaries)", anime: "The Apothecary Diaries", image: null },
-      { id: "haruka-wind-breaker", name: "Haruka (Wind Breaker)", anime: "Wind Breaker", image: null }
+      { id: "anya-forger-spy-family-season-2", name: "Anya Forger", anime: "SPY×FAMILY Season 2", image: null },
+      { id: "okarun-dandadan", name: "Okarun ", anime: "Dandadan", image: null },
+      { id: "kaoruko-waguri-fragrant-flower", name: "Kaoruko Waguri", anime: "The Fragrant Flower Blooms with Dignity", image: "img/kaoruko-waguri.png", position: "top" },
+      { id: "angel-chainsaw-man", name: "Angel ", anime: "Chainsaw Man", image: "img/angel-chainsaw-man.png", position: "top" },
+      { id: "takopi-takopii-no-genzai", name: "Takopi (", anime: "Takopii no Genzai", image: null },
+      { id: "nezuko-demon-slayer", name: "Nezuko ", anime: "Demon Slayer", image: null },
+      { id: "lishu-the-apothecary-diaries", name: "Lishu ", anime: "The Apothecary Diaries", image: null },
+      { id: "haruka-wind-breaker", name: "Haruka", anime: "Wind Breaker", image: null }
     ]
   }
 ];

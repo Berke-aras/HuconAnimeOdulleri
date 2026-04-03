@@ -276,8 +276,8 @@ const AniListService = (() => {
       return "img/md3fx6mbxv3f1.jpeg";
     }
 
-    // 1. If it's already a full URL, use it
-    if (candidate.image && (candidate.image.startsWith('http') || candidate.image.startsWith('https'))) {
+    // 1. If it's already a provided image url (local or remote), use it
+    if (candidate.image && typeof candidate.image === 'string' && candidate.image.trim() !== "") {
       return candidate.image;
     }
 
