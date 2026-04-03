@@ -1265,3 +1265,26 @@ async function hatiraRevote(e) {
   } catch (err) { }
   window.location.href = 'oylama.html';
 }
+
+// Low-End Device Detection (GPU/CPU Optimization)
+(function applyPerformanceMode() {
+  const isCustomLowEnd = localStorage.getItem('forceLowEnd') === 'true';
+  const isWeakDevice = (
+    (typeof navigator.hardwareConcurrency !== 'undefined' && navigator.hardwareConcurrency <= 4) ||
+    (typeof navigator.deviceMemory !== 'undefined' && navigator.deviceMemory <= 3)
+  );
+
+  function checkAndApply() {
+    if ((isWeakDevice || isCustomLowEnd) && document.body) {
+      document.body.classList.add('low-perf-device');
+      console.log("[Performance] Zayıf cihaz algılandı, ağır animasyonlar ve efektler devre dışı bırakıldı.");
+    }
+  }
+
+  // DOM content yüklendiğinde ve anında kontrol et
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkAndApply);
+  } else {
+    checkAndApply();
+  }
+})();

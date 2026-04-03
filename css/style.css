@@ -1442,20 +1442,40 @@ body::after {
   display: none !important; /* Yıldız kaymasını kapat */
 }
 
-.low-perf-device .glass, 
-.low-perf-device .glass-strong { 
-  backdrop-filter: none !important; /* Performance boost */
-  -webkit-backdrop-filter: none !important;
-  background: rgba(12, 12, 30, 0.95) !important;
-}
-
 .low-perf-device body::before {
   animation: none !important; /* Stop heavy gradient shifts */
 }
 
+/* Glass ve blur efektlerini kapat, düz arkapan tanımla */
+.low-perf-device .glass, 
+.low-perf-device .glass-strong,
+.low-perf-device .vote-nav,
+.low-perf-device .confirm-bottom-actions { 
+  backdrop-filter: none !important; 
+  -webkit-backdrop-filter: none !important;
+  background: rgba(12, 12, 30, 0.98) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5) !important;
+}
+
+/* Candidate Card Performans Artışı: Gölge, transform ve glow kapalı */
+.low-perf-device .candidate-card {
+  box-shadow: none !important;
+  transform: none !important;
+  transition: transform 0.1s, border-color 0.1s !important;
+}
+
+.low-perf-device .candidate-card:hover,
+.low-perf-device .candidate-card.selected,
+.low-perf-device .candidate-card.selected:hover {
+  box-shadow: none !important;
+  transform: scale(0.98) !important;
+  border-width: 2px !important;
+}
+
 /* Reduce transition times for snappier feel on slow devices */
-.low-perf-device * {
-  transition-duration: 0.15s !important;
+.low-perf-device *, .low-perf-device *::before, .low-perf-device *::after {
+  transition-duration: 0.1s !important;
+  animation-duration: 0.1s !important;
 }
 
 /* Selection */
