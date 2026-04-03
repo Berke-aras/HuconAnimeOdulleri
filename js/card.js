@@ -80,14 +80,73 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function drawImageCover(ctx, img, dx, dy, size) {
+  const dWidth = size, dHeight = size;
+  const imgRatio = img.width / img.height;
+  let sx, sy, sWidth, sHeight;
+  if (imgRatio > 1) {
+     sHeight = img.height;
+     sWidth = img.height;
+     sx = (img.width - sWidth) / 2;
+     sy = 0;
+  } else {
+     sWidth = img.width;
+     sHeight = img.width;
+     sx = 0;
+     sy = 0; // Align top for character faces mostly
+  }
+  ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+}
+
+function drawSplitImageCover(ctx, img, dx, dy, dWidth, dHeight) {
+  const imgRatio = img.width / img.height;
+  const boxRatio = dWidth / dHeight;
+  let sx, sy, sWidth, sHeight;
+  if (imgRatio > boxRatio) {
+     sHeight = img.height;
+     sWidth = img.height * boxRatio;
+     sx = (img.width - sWidth) / 2;
+     sy = 0;
+  } else {
+     sWidth = img.width;
+     sHeight = img.width / boxRatio;
+     sx = 0;
+     sy = 0;
+  }
+  ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+}
+
 function drawRoundedImage(ctx, img, x, y, size, radius) {
   ctx.save();
   roundRect(ctx, x, y, size, size, radius);
   ctx.clip();
-  ctx.drawImage(img, x, y, size, size);
+  drawImageCover(ctx, img, x, y, size);
   ctx.restore();
 
-  // Subtle glow border around thumbnails
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, x, y, size, size, radius);
+  ctx.stroke();
+}
+
+function drawSplitRoundedImage(ctx, img1, img2, x, y, size, radius) {
+  ctx.save();
+  roundRect(ctx, x, y, size, size, radius);
+  ctx.clip();
+  
+  const halfW = size / 2;
+  drawSplitImageCover(ctx, img1, x, y, halfW, size);
+  if (img2) {
+    drawSplitImageCover(ctx, img2, x + halfW, y, halfW, size);
+    ctx.beginPath();
+    ctx.moveTo(x + halfW, y);
+    ctx.lineTo(x + halfW, y + size);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
+
   ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 2.5;
   roundRect(ctx, x, y, size, size, radius);
@@ -177,7 +236,18 @@ async function renderCard(data) {
 
     const imgPromise = AniListService.resolveCandidateImage(candidate, cat.id).then(url => {
       if (url) {
-        return loadImageSafe(url).then(img => { sel.image = img; });
+        if (Array.isArray(url)) {
+          return Promise.all([
+            loadImageSafe(url[0]),
+            url[1] ? loadImageSafe(url[1]) : Promise.resolve(null)
+          ]).then(imgs => {
+            sel.image = imgs.filter(i => i != null);
+          });
+        } else {
+          return loadImageSafe(url).then(img => { 
+            if (img) sel.image = [img]; 
+          });
+        }
       }
     });
     imagePromises.push(imgPromise);
@@ -310,7 +380,16 @@ function drawSelectionsSection(ctx, data, hasBg, selections) {
   const rows = Math.ceil(selections.length / cols);
   const gridH = rows * cellH + (rows - 1) * cellGap;
   const sectionH = headerH + gridH + footerH + innerPad * 2;
-  const sectionY = CARD_H - CARD_PAD - sectionH;
+  
+  // Center it in the remaining vertical space under the number section
+  const availableSpace = CARD_H - (CARD_PAD + 340) - CARD_PAD;
+  let sectionY = (CARD_PAD + 340) + Math.max(0, (availableSpace - sectionH) / 2);
+  
+  // Tamamen en alta yapısmaması icin max siniri ekle
+  if (sectionY + sectionH > CARD_H - CARD_PAD) {
+     sectionY = CARD_H - CARD_PAD - sectionH;
+  }
+  
   const contentW = CARD_W - CARD_PAD * 2;
 
   // Ana overlay kutusu
@@ -396,8 +475,12 @@ function drawSelectionsSection(ctx, data, hasBg, selections) {
     const thumbX = cellX + thumbPad + 6;
     const thumbY = cellY + (cellH - cellThumb) / 2;
 
-    if (sel.image) {
-      drawRoundedImage(ctx, sel.image, thumbX, thumbY, cellThumb, 12);
+    if (sel.image && sel.image.length > 0) {
+      if (sel.image.length === 2 && sel.image[1]) {
+        drawSplitRoundedImage(ctx, sel.image[0], sel.image[1], thumbX, thumbY, cellThumb, 12);
+      } else {
+        drawRoundedImage(ctx, sel.image[0], thumbX, thumbY, cellThumb, 12);
+      }
     } else {
       drawInitialsThumb(ctx, sel.initials, thumbX, thumbY, cellThumb, 12, sel.color);
     }
