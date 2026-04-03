@@ -133,6 +133,11 @@ if (typeof AntifraudManager !== 'undefined') {
   renderCategory(false);
   console.log("Vote UI: Initial rendering complete.");
   
+  // Arkaplanda tüm resimleri önceden yüklemeyi başlat (hızı arttırmak için)
+  if (typeof AniListService !== 'undefined' && AniListService.startBackgroundPrefetch) {
+    AniListService.startBackgroundPrefetch();
+  }
+  
   // 2. Oylama başlangıç zamanını kaydet
   if (typeof AntifraudManager !== 'undefined') {
     AntifraudManager.markVotingStarted();
@@ -462,20 +467,61 @@ function showConfirmScreen() {
     item.style.animation = `fadeInUp 0.4s ease ${idx * 0.05}s forwards`;
     item.style.opacity = '0';
     item.innerHTML = `
-      <img
-        class="confirm-item-img"
-        src="${escapeHTML(candidate.image)}"
-        alt="${escapeHTML(candidate.name)}"
-        style="object-fit: cover; object-position:${candidate.position || 'center'};"
-        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-      >
-      <div class="confirm-item-img-placeholder" style="display:none;">${initials}</div>
+      <div class="confirm-item-img-container" style="position:relative; width:52px; height:52px; flex-shrink:0; display:flex;">
+        <div class="confirm-item-img-wrapper" style="width:100%; height:100%; display:flex; position:relative; overflow:hidden; border-radius:12px;">
+          <img
+            class="confirm-item-img"
+            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            alt="${escapeHTML(candidate.name)}"
+            style="opacity: 0; transition: opacity 0.5s ease; width:100%; height:100%; object-fit:cover; object-position:${candidate.position || 'center'};"
+            onerror="this.style.display='none'; if(!this.parentElement.querySelector('.confirm-item-placeholder')) this.parentElement.insertAdjacentHTML('beforeend', '<div class=\'confirm-item-placeholder\' style=\'display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:linear-gradient(135deg, var(--bg-secondary), rgba(124,58,237,0.08)); font-weight:bold;\'>${initials}</div>');"
+          >
+        </div>
+        <div class="confirm-item-placeholder" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, var(--bg-secondary), rgba(124,58,237,0.08)); font-weight:bold; font-size:1.1rem; border-radius:12px; z-index:-1; color: var(--text-muted);">${initials}</div>
+      </div>
       <div class="confirm-item-text">
         <div class="confirm-item-category">${escapeHTML(cat.title)}</div>
-        <div class="confirm-item-name">${escapeHTML(candidate.name)}</div>
+        <div class="confirm-item-name" style="white-space: normal; overflow: visible; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2;">${escapeHTML(candidate.name)}</div>
       </div>
     `;
     list.appendChild(item);
+
+    // Asenkron resim yükleme mekanizması
+    AniListService.resolveCandidateImage(candidate, cat.id).then(imageUrl => {
+      const img = item.querySelector('.confirm-item-img');
+      const placeholder = item.querySelector('.confirm-item-placeholder');
+      const wrapper = item.querySelector('.confirm-item-img-wrapper');
+      
+      if (!imageUrl) {
+        if (img) img.onerror();
+        return;
+      }
+
+      if (Array.isArray(imageUrl) && imageUrl.length > 1) {
+        // Çiftler için
+        wrapper.innerHTML = '';
+        imageUrl.forEach((url, i) => {
+          const sideImg = document.createElement('img');
+          sideImg.src = url;
+          sideImg.style.cssText = `width:50%; height:100%; object-fit:cover; object-position:${candidate.position || 'center'}; transition: opacity 0.5s ease; opacity: 0; ${i === 0 ? 'border-right:1px solid rgba(255,255,255,0.1)' : ''}`;
+          sideImg.onload = () => {
+            sideImg.style.opacity = '1';
+            if (placeholder) placeholder.style.display = 'none';
+          };
+          wrapper.appendChild(sideImg);
+        });
+      } else {
+        const finalUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
+        img.onload = () => {
+          img.style.opacity = '1';
+          if (placeholder) placeholder.style.display = 'none';
+        };
+        img.src = finalUrl;
+      }
+    }).catch(e => {
+       const img = item.querySelector('.confirm-item-img');
+       if (img) img.onerror();
+    });
   });
 
   // Turnstile widget'ini onay ekraninda renderla

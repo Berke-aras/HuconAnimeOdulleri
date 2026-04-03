@@ -351,9 +351,19 @@ const AniListService = (() => {
     const batchSize = 3;
     for (let i = 0; i < candidates.length; i += batchSize) {
       const batch = candidates.slice(i, i + batchSize);
+      
+      // Sadece dışarıdan (AniList üzerinden) yüklenecek olanlar varsa bekleme süresi koyalım
+      const requiresApi = batch.some(c => {
+        const mapKey = categoryId + '_' + c.id;
+        return !(typeof IMAGE_MAP !== 'undefined' && IMAGE_MAP[mapKey]) && !c.image;
+      });
+
       await Promise.allSettled(batch.map(c => resolveCandidateImage(c, categoryId)));
-      // Aynı anda devasa patlamalar (burst) yaşanmaması için ufak dinlenme
-      await new Promise(r => setTimeout(r, 200));
+      
+      // Aynı anda devasa patlamalar (burst) yaşanmaması için ufak dinlenme (sadece apiye ihtiyaç varsa)
+      if (requiresApi) {
+        await new Promise(r => setTimeout(r, 200));
+      }
     }
   }
 
@@ -370,17 +380,33 @@ const AniListService = (() => {
     
     for (const cat of CATEGORIES) {
       for (const candidate of cat.candidates) {
-        // Sunucuyu kızdırmamak ve interneti sömürmemek için her aday arası 1.5 saniye bekle
-        await new Promise(r => setTimeout(r, 1500));
+        const mapKey = cat.id + '_' + candidate.id;
+        const isLocal = (typeof IMAGE_MAP !== 'undefined' && IMAGE_MAP[mapKey]) || candidate.image;
+        
+        // Sunucuyu kızdırmamak ve interneti sömürmemek için sadece AniList e giden isteklerde bekle
+        if (!isLocal) {
+          await new Promise(r => setTimeout(r, 1500));
+        } else {
+          await new Promise(r => setTimeout(r, 10)); // Çok kısa beklet
+        }
+        
         try {
           const url = await resolveCandidateImage(candidate, cat.id);
           if (url) {
-            // Resim URL'sini sadece AniList cache'e değil, tarayıcının HTTP önbelleğine de indir!
+            // Resim URL'sini tarayıcının HTTP önbelleğine ardışık (sequential) olarak indir
+            // Aynı anda 200 istek atıp ağ kuyruğunu (stalled) tıkamamak için tamamlanmasını bekle
             const imgUrls = Array.isArray(url) ? url : [url];
-            imgUrls.forEach(u => {
-              const img = new Image();
-              img.src = u; // Bu işlem resmi tarayıcı önbelleğine alır
+            const loadPromises = imgUrls.map(u => {
+              return new Promise(resolve => {
+                const img = new Image();
+                // Yüklendiğinde veya hata verdiğinde beklemeden çık ki sonraki resme geçsin
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+                img.src = u;
+              });
             });
+            // Resimlerin fiziksel olarak inmesini bekle
+            await Promise.all(loadPromises);
           }
         } catch (e) {}
       }

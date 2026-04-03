@@ -245,40 +245,39 @@
       <p class="confirm-subtitle">Son bir kez kontrol et</p>
       <div class="confirm-list" id="confirmList"></div>
 
-      <!-- KVKK Onay -->
-      <div class="kvkk-consent-wrap"
-        style="margin: 24px 0; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--border-color); text-align: left;">
-        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; user-select: none;">
-          <input type="checkbox" id="kvkkCheckbox"
-            style="width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent-orange);">
-          <span style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
-            <a href="kvkk.html" target="_blank"
-              style="color: var(--accent-orange); text-decoration: underline;">Aydınlatma Metni</a>'ni okudum.
-            Tekrarlı oy kullanımını önlemek amacıyla teknik verilerimin (IP hash ve cihaz imzası) işlenmesini kabul
-            ediyorum.
-          </span>
-        </label>
-      </div>
+      <div class="confirm-bottom-actions">
+        <!-- KVKK Onay -->
+        <div class="kvkk-consent-wrap">
+          <label class="kvkk-label">
+            <input type="checkbox" id="kvkkCheckbox">
+            <span class="kvkk-text">
+              <a href="kvkk.html" target="_blank" style="color: var(--accent-orange); text-decoration: underline;">Aydınlatma Metni</a>'ni okudum.
+              Tekrarlı oy kullanımını önlemek amacıyla teknik verilerimin (IP hash ve cihaz imzası) işlenmesini kabul
+              ediyorum.
+            </span>
+          </label>
+        </div>
 
-      <div id="recaptchaContainer" style="display:flex;justify-content:center;margin:24px 0;">
-        <div id="recaptchaWidget"></div>
-      </div>
-      <div class="confirm-actions">
-        <button class="btn btn-secondary" onclick="backToVoting()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m12 19-7-7 7-7" />
-            <path d="M19 12H5" />
-          </svg>
-          Geri Dön
-        </button>
-        <button class="btn btn-primary" id="submitBtn" onclick="submitVotes()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Oyları Gönder
-        </button>
+        <div id="recaptchaContainer" class="turnstile-wrap">
+          <div id="recaptchaWidget"></div>
+        </div>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" onclick="backToVoting()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7" />
+              <path d="M19 12H5" />
+            </svg>
+            Geri Dön
+          </button>
+          <button class="btn btn-primary" id="submitBtn" onclick="submitVotes()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Oyları Gönder
+          </button>
+        </div>
       </div>
     </div>
   </div>
