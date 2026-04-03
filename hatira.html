@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,8 +18,10 @@
   <meta name="twitter:title" content="Anime Oylama Hatıra Kartı — HUCON'26">
   <meta name="twitter:image" content="img/og-cover.png">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
 </head>
+
 <body>
   <!-- Loading -->
   <div id="loadingOverlay" class="loading-overlay">
@@ -29,17 +32,26 @@
   <!-- Erisim Yok -->
   <div id="noDataSection" class="hero hidden">
     <div class="hero-content">
-      <div class="hero-logo" style="background: linear-gradient(135deg, #ef4444, #f59e0b); box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);">
-        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      <div class="hero-logo"
+        style="background: linear-gradient(135deg, #ef4444, #f59e0b); box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       </div>
-      <h1 style="background: linear-gradient(135deg, #fff, #fca5a5); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Hatıra Kartı Bulunamadı</h1>
-      <p class="subtitle">Oy verileriniz bu cihazda bulunamadı. Eğer daha önce oy verdiyseniz ve verileriniz kaybolduysa, sistemimiz sizi otomatik tanıyabilir.</p>
+      <h1
+        style="background: linear-gradient(135deg, #fff, #fca5a5); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+        Hatıra Kartı Bulunamadı</h1>
+      <p class="subtitle">Oy verileriniz bu cihazda bulunamadı. Eğer daha önce oy verdiyseniz ve verileriniz
+        kaybolduysa, sistemimiz sizi otomatik tanıyabilir.</p>
       <div style="display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;justify-content:center;">
         <a href="oylama.html" class="btn btn-primary" id="hatiraRevoteBtn" onclick="hatiraRevote(event)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
           </svg>
           Oylama / Kurtarma sayfasına git
         </a>
@@ -47,17 +59,27 @@
       </div>
 
       <!-- FAQ / Destek -->
-      <div class="faq-section" style="margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border-color); text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
-        <h3 style="font-size: 1.1rem; margin-bottom: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <div class="faq-section"
+        style="margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border-color); text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
+        <h3
+          style="font-size: 1.1rem; margin-bottom: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+          </svg>
           Oy verdiğinizden emin misiniz?
         </h3>
         <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
-          Oyunuzun bu ekranda görünmemesi, tarayıcı verilerinizin silinmiş olmasından kaynaklanabilir. Sistemimiz kimliğinizi otomatik kurtarmaya çalışacaktır. Eğer kurtarılamazsa:
+          Oyunuzun bu ekranda görünmemesi, tarayıcı verilerinizin silinmiş olmasından kaynaklanabilir. Sistemimiz
+          kimliğinizi otomatik kurtarmaya çalışacaktır. Eğer kurtarılamazsa:
         </p>
-        <ul style="font-size: 0.85rem; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; margin-bottom: 24px;">
+        <ul
+          style="font-size: 0.85rem; color: var(--text-secondary); padding-left: 20px; line-height: 1.6; margin-bottom: 24px;">
           <li>Wi-Fi'ı kapatıp mobil veri ile oylama/kurtarma sayfasını tekrar açın.</li>
-          <li>Instagram üzerinden destek alın: <a href="https://instagram.com/hucon_26" target="_blank" style="text-decoration: underline; color: inherit; font-weight: bold;">@hucon_26</a></li>
+          <li>Instagram üzerinden destek alın: <a href="https://instagram.com/hucon_26" target="_blank"
+              style="text-decoration: underline; color: inherit; font-weight: bold;">@hucon_26</a></li>
         </ul>
       </div>
     </div>
@@ -70,23 +92,32 @@
 
     <div class="card-download-actions fade-in-up fade-in-up-delay-2">
       <button class="btn btn-primary" id="downloadPngBtn" onclick="downloadPNG()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
         PNG İndir
       </button>
       <button class="btn btn-secondary" id="downloadPdfBtn" onclick="downloadPDF()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
         </svg>
         PDF İndir
       </button>
       <a href="index.html" class="btn btn-secondary">Ana Sayfa</a>
       <button class="btn btn-secondary" onclick="hatiraRevote(event)" title="Oyları Değiştir">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+          <path d="M16 16h5v5" />
         </svg>
-        Değiştir
+        Tekrar Oyla
       </button>
     </div>
 
@@ -94,20 +125,39 @@
     <div class="share-section fade-in-up fade-in-up-delay-2">
       <p class="share-label">Kartını paylaş</p>
       <div class="share-buttons">
-        <button class="share-btn share-native" id="shareNativeBtn" onclick="shareNative()" style="display:none;" title="Paylaş">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <button class="share-btn share-native" id="shareNativeBtn" onclick="shareNative()" style="display:none;"
+          title="Paylaş">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
           Paylaş
         </button>
         <button class="share-btn share-ig" onclick="shareInstagram()" title="Instagram">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+          </svg>
           Instagram
         </button>
         <button class="share-btn share-tiktok" onclick="shareTikTok()" title="TikTok">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.75a8.18 8.18 0 0 0 4.76 1.52V6.84a4.83 4.83 0 0 1-1-.15z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.75a8.18 8.18 0 0 0 4.76 1.52V6.84a4.83 4.83 0 0 1-1-.15z" />
+          </svg>
           TikTok
         </button>
         <button class="share-btn share-x" onclick="shareX()" title="X">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
           X
         </button>
       </div>
@@ -132,13 +182,13 @@
   <script src="js/consent.js"></script>
   <script src="js/card.js"></script>
   <script>
-    (function() {
+    (function () {
       const wrapper = document.getElementById('cardWrapper');
       if (!wrapper) return;
       const isTouchDevice = 'ontouchstart' in window;
       if (isTouchDevice) return;
 
-      wrapper.addEventListener('mousemove', function(e) {
+      wrapper.addEventListener('mousemove', function (e) {
         const rect = wrapper.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width;
         const y = (e.clientY - rect.top) / rect.height;
@@ -147,10 +197,11 @@
         wrapper.style.transform = `perspective(800px) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(1.02)`;
       });
 
-      wrapper.addEventListener('mouseleave', function() {
+      wrapper.addEventListener('mouseleave', function () {
         wrapper.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) scale(1)';
       });
     })();
   </script>
 </body>
+
 </html>

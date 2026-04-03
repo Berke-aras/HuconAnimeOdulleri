@@ -185,10 +185,8 @@ async function renderCard(data) {
   canvas.width = finalW;
   canvas.height = finalH;
 
-  // CSS preview boyutu — ekran genişliğine sığdır
-  const maxDisplayW = Math.min(window.innerWidth - 32, 540);
-  canvas.style.width = maxDisplayW + 'px';
-  canvas.style.height = 'auto';
+  // CSS handles display sizing via .card-preview-wrapper canvas { width: 100%; height: auto; }
+  // Inline style kaldırıldı — CSS'in tam kontrolü var
 
   const ctx = canvas.getContext('2d');
   ctx.scale(_scale, _scale);
@@ -530,21 +528,59 @@ function truncateText(ctx, text, maxW) {
   return t + '...';
 }
 
-function downloadPNG() {
-  if (!_cardCanvas) return;
+async function downloadPNG() {
+  if (!_voteData) return;
   const btn = document.getElementById('downloadPngBtn');
   btn.disabled = true;
+  btn.textContent = 'Hazırlanıyor...';
   try {
+    // Tam çözünürlükte (1080x1920) ayrı bir canvas oluştur
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = CARD_W;
+    exportCanvas.height = CARD_H;
+    const savedScale = _scale;
+    _scale = 1.0; // Tam çözünürlükte çiz
+    
+    // Görünür canvas yerine geçici canvas'a render et
+    const origCanvas = document.getElementById('cardCanvas');
+    const origId = origCanvas.id;
+    exportCanvas.id = 'cardCanvas';
+    origCanvas.id = '_tmp';
+    // Geçici olarak DOM'a ekle (renderCard getElementById kullanıyor)
+    exportCanvas.style.display = 'none';
+    document.body.appendChild(exportCanvas);
+    
+    await renderCard(_voteData);
+    
+    // Geri al
+    origCanvas.id = origId;
+    exportCanvas.id = '';
+    document.body.removeChild(exportCanvas);
+    _scale = savedScale;
+    
+    // Orijinal preview'ı tekrar çiz
+    await renderCard(_voteData);
+    
     const link = document.createElement('a');
     const num = String(_voteData.cardNumber).padStart(4, '0');
     link.download = `anime-oylama-hatira-${num}.png`;
-    link.href = _cardCanvas.toDataURL('image/png');
+    link.href = exportCanvas.toDataURL('image/png');
     link.click();
   } catch (e) {
     console.error('PNG indirme hatasi:', e);
-    alert('PNG indirilemedi. Ekran goruntusu alin.');
+    // Fallback: mevcut canvas'ı indir
+    try {
+      const link = document.createElement('a');
+      const num = String(_voteData.cardNumber).padStart(4, '0');
+      link.download = `anime-oylama-hatira-${num}.png`;
+      link.href = _cardCanvas.toDataURL('image/png');
+      link.click();
+    } catch (e2) {
+      alert('PNG indirilemedi. Ekran goruntusu alin.');
+    }
   } finally {
     btn.disabled = false;
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PNG İndir`;
   }
 }
 
