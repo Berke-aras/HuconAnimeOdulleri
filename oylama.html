@@ -288,14 +288,48 @@
     <div class="loading-text" style="color: var(--text-primary); font-weight: 600;">Oylariniz gonderiliyor...</div>
   </div>
 
-  <!-- Local Video Modal -->
+  <!-- Video Modal (Premium İzleme Deneyimi) -->
   <div id="videoModal" class="modal-overlay hidden" onclick="closeVideoModal()">
     <button class="modal-close-global" onclick="closeVideoModal()">&times;</button>
     <div class="modal-content" onclick="event.stopPropagation()">
+      <!-- Navigasyon Okları -->
+      <button class="video-nav-arrow video-nav-prev hidden-arrow" id="videoNavPrev" onclick="event.stopPropagation(); navigateVideo(-1)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </button>
+      <button class="video-nav-arrow video-nav-next hidden-arrow" id="videoNavNext" onclick="event.stopPropagation(); navigateVideo(1)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 18 6-6-6-6"/>
+        </svg>
+      </button>
+
+      <!-- Video -->
       <div class="video-container">
         <video id="localVideoPlayer" preload="none" width="100%" height="100%" controls playsinline
-          controlsList="nodownload"
-          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; pointer-events: auto; outline: none; border-radius: 16px;"></video>
+          controlsList="nodownload"></video>
+      </div>
+
+      <!-- Bilgi Paneli -->
+      <div class="video-info-panel">
+        <div id="videoInfoThumbWrap">
+          <div class="video-info-thumb-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+          </div>
+        </div>
+        <div class="video-info-text">
+          <div class="video-info-song" id="videoInfoSong">—</div>
+          <div class="video-info-anime" id="videoInfoAnime">—</div>
+          <div class="video-info-counter" id="videoInfoCounter"></div>
+        </div>
+        <button class="video-vote-btn" id="videoVoteBtn" onclick="event.stopPropagation(); selectFromModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>Bunu Seç</span>
+        </button>
       </div>
     </div>
   </div>

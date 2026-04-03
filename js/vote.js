@@ -270,15 +270,15 @@ function populateGrid(cat, grid) {
     const initials = escapeHTML(candidate.name.split(' ').map(w => w[0]).join('').substring(0, 2));
 
     let extraHTML = '';
-    // Sadece OP ve ED kategorilerinde YouTube butonunu göster
+    // Sadece OP ve ED kategorilerinde İzle butonunu göster
     if (cat.id === 'gorsel-isitsel-en-iyi-acilis-op' || cat.id === 'gorsel-isitsel-en-iyi-ending') {
       const ytQuery = encodeURIComponent(candidate.name);
       extraHTML = `
         <button type="button" class="listen-btn" onclick="event.stopPropagation(); openVideoModal('${candidate.id}')">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <path d="M21.582 6.186a2.766 2.766 0 0 0-1.946-1.954C17.918 3.75 12 3.75 12 3.75s-5.918 0-7.636.482a2.766 2.766 0 0 0-1.946 1.954C1.936 7.904 1.936 12 1.936 12s0 4.096.482 5.814a2.766 2.766 0 0 0 1.946 1.954c1.718.482 7.636.482 7.636.482s5.918 0 7.636-.482a2.766 2.766 0 0 0 1.946-1.954C22.064 16.096 22.064 12 22.064 12s0-4.096-.482-5.814zM9.914 15.112V8.888l5.808 3.116-5.808 3.108z"/>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
-          Dinle
+          <span>İzle</span>
         </button>
       `;
     }
@@ -296,7 +296,7 @@ function populateGrid(cat, grid) {
             src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
             alt="${escapeHTML(candidate.name)}"
             style="opacity: 0; transition: opacity 0.5s ease; width:100%; height:100%; object-fit:cover; object-position:${candidate.position || 'center'};"
-            onerror="this.style.display='none'; if(!this.parentElement.querySelector('.candidate-image-placeholder')) this.parentElement.insertAdjacentHTML('beforeend', '<div class=\'candidate-image-placeholder\' style=\'display:flex;\'>${initials}</div>');"
+            onerror="this.style.display='none'; if(!this.parentElement.querySelector('.candidate-image-placeholder')) this.parentElement.insertAdjacentHTML('beforeend', '<div class=\\'candidate-image-placeholder\\' style=\\'display:flex;\\'>${initials}</div>');"
           >
         </div>
         <div class="candidate-image-placeholder" style="display:flex;">${initials}</div>
@@ -371,29 +371,235 @@ async function loadCandidateImage(card, candidate, categoryId) {
   }
 }
 
+// ============================================================
+// VIDEO MODAL — Premium İzleme Deneyimi
+// ============================================================
+let currentVideoCategory = null;   // Açık modalın kategorisi
+let currentVideoCandidateId = null; // Açık modalda gösterilen aday
+let videoSwipeStartX = 0;
+
+/**
+ * Video modalını aç — aday bilgilerini göster, navigasyon ayarla
+ */
 function openVideoModal(candidateId) {
+  const cat = CATEGORIES[currentCategoryIndex];
+  currentVideoCategory = cat;
+  currentVideoCandidateId = candidateId;
+
+  _loadVideoForCandidate(candidateId, false);
+
   const modal = document.getElementById('videoModal');
-  const video = document.getElementById('localVideoPlayer');
-  
-  video.src = `video/${candidateId}.mp4`;
-  video.volume = 0.3; // Ses %30'dan başlar
   modal.classList.remove('hidden');
-  
-  // Try autoplaying
-  video.play().catch(e => console.log('Otomatik oynatma tarayıcı tarafından engellendi:', e));
+  document.body.style.overflow = 'hidden';
+
+  // Keyboard listener ekle
+  document.addEventListener('keydown', _videoKeyHandler);
 }
 
+/**
+ * Belirli bir adayın videosunu yükle ve info panelini güncelle
+ */
+function _loadVideoForCandidate(candidateId, animate) {
+  const cat = currentVideoCategory;
+  if (!cat) return;
+
+  const candidates = cat.candidates;
+  const idx = candidates.findIndex(c => c.id === candidateId);
+  const candidate = candidates[idx];
+  if (!candidate) return;
+
+  currentVideoCandidateId = candidateId;
+
+  const video = document.getElementById('localVideoPlayer');
+  const songEl = document.getElementById('videoInfoSong');
+  const animeEl = document.getElementById('videoInfoAnime');
+  const counterEl = document.getElementById('videoInfoCounter');
+  const thumbWrap = document.getElementById('videoInfoThumbWrap');
+  const voteBtn = document.getElementById('videoVoteBtn');
+
+  // Video yükle
+  if (animate) {
+    video.style.transition = 'opacity 0.2s';
+    video.style.opacity = '0';
+    setTimeout(() => {
+      video.src = `video/${candidateId}.mp4`;
+      video.volume = 0.3;
+      video.play().catch(() => {});
+      video.style.opacity = '1';
+    }, 200);
+  } else {
+    video.src = `video/${candidateId}.mp4`;
+    video.volume = 0.3;
+    video.play().catch(e => console.log('Otomatik oynatma tarayıcı tarafından engellendi:', e));
+  }
+
+  // Bilgi panelini doldur
+  // Şarkı adını adayın name'inden ayıkla (formatlar: "Anime — "Song" by Artist" veya "Anime — "Song"")
+  const nameStr = candidate.name;
+  const quotedMatch = nameStr.match(/["""](.+?)["""]/);
+  const songName = quotedMatch ? quotedMatch[1] : nameStr;
+  
+  songEl.textContent = songName;
+  animeEl.textContent = candidate.anime;
+  counterEl.textContent = `${idx + 1} / ${candidates.length}`;
+
+  // Thumbnail yükle
+  thumbWrap.innerHTML = `
+    <div class="video-info-thumb-placeholder">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+      </svg>
+    </div>
+  `;
+  
+  // Asenkron thumbnail
+  AniListService.resolveCandidateImage(candidate, cat.id).then(url => {
+    const finalUrl = Array.isArray(url) ? url[0] : url;
+    if (finalUrl && currentVideoCandidateId === candidateId) {
+      const img = document.createElement('img');
+      img.className = 'video-info-thumb';
+      img.src = finalUrl;
+      img.alt = candidate.anime;
+      img.onload = () => {
+        thumbWrap.innerHTML = '';
+        thumbWrap.appendChild(img);
+      };
+    }
+  }).catch(() => {});
+
+  // Oy butonu durumu
+  if (selections[cat.id] === candidateId) {
+    voteBtn.classList.add('voted');
+    voteBtn.querySelector('span').textContent = 'Seçildi ✓';
+  } else {
+    voteBtn.classList.remove('voted');
+    voteBtn.querySelector('span').textContent = 'Bunu Seç';
+  }
+
+  // Navigasyon oklarını güncelle
+  const prevBtn = document.getElementById('videoNavPrev');
+  const nextBtn = document.getElementById('videoNavNext');
+
+  if (idx <= 0) {
+    prevBtn.classList.add('hidden-arrow');
+  } else {
+    prevBtn.classList.remove('hidden-arrow');
+  }
+
+  if (idx >= candidates.length - 1) {
+    nextBtn.classList.add('hidden-arrow');
+  } else {
+    nextBtn.classList.remove('hidden-arrow');
+  }
+}
+
+/**
+ * Video modalında ileri/geri git
+ */
+function navigateVideo(direction) {
+  if (!currentVideoCategory) return;
+
+  const candidates = currentVideoCategory.candidates;
+  const idx = candidates.findIndex(c => c.id === currentVideoCandidateId);
+  const newIdx = idx + direction;
+
+  if (newIdx < 0 || newIdx >= candidates.length) return;
+
+  // Mevcut videoyu durdur ve belleği boşalt
+  const video = document.getElementById('localVideoPlayer');
+  video.pause();
+  video.src = ""; // RAM tasarrufu için kaynağı temizle
+  video.load();
+
+  _loadVideoForCandidate(candidates[newIdx].id, true);
+}
+
+/**
+ * Modal içinden oy ver
+ */
+function selectFromModal() {
+  if (!currentVideoCategory || !currentVideoCandidateId) return;
+
+  const cat = currentVideoCategory;
+  const candidateId = currentVideoCandidateId;
+
+  // Mevcut selection'ı güncelle
+  selections[cat.id] = candidateId;
+
+  // Ana sayfadaki kartları güncelle
+  document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
+  const cards = document.querySelectorAll('.candidate-card');
+  const candidates = cat.candidates;
+  const idx = candidates.findIndex(c => c.id === candidateId);
+  if (cards[idx]) {
+    cards[idx].classList.add('selected');
+  }
+
+  updateNextButton();
+  updatePillNav(false);
+
+  // Buton durumunu güncelle
+  const voteBtn = document.getElementById('videoVoteBtn');
+  voteBtn.classList.add('voted');
+  voteBtn.querySelector('span').textContent = 'Seçildi ✓';
+}
+
+/**
+ * Video modalını kapat
+ */
 function closeVideoModal() {
   const modal = document.getElementById('videoModal');
   const video = document.getElementById('localVideoPlayer');
   modal.classList.add('hidden');
-  
-  // Fade out animasyonu tamamlanınca durdur
+  document.body.style.overflow = '';
+
+  // Keyboard listener kaldır  
+  document.removeEventListener('keydown', _videoKeyHandler);
+
+  // Fade out animasyonu tamamlanınca durdur ve kaynağı temizle
   setTimeout(() => {
     video.pause();
-    video.src = ''; 
-  }, 300);
+    video.src = '';
+    video.load(); // Kaynağı tamamen serbest bırak (weak devices için kritik)
+  }, 350);
+
+  currentVideoCategory = null;
+  currentVideoCandidateId = null;
 }
+
+/**
+ * Keyboard event handler (ok tuşları + Escape)
+ */
+function _videoKeyHandler(e) {
+  if (e.key === 'Escape') {
+    closeVideoModal();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    navigateVideo(-1);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    navigateVideo(1);
+  }
+}
+
+// Touch swipe desteği
+document.addEventListener('DOMContentLoaded', () => {
+  const modalContent = document.querySelector('#videoModal .modal-content');
+  if (!modalContent) return;
+
+  modalContent.addEventListener('touchstart', (e) => {
+    videoSwipeStartX = e.touches[0].clientX;
+  }, { passive: true });
+
+  modalContent.addEventListener('touchend', (e) => {
+    if (!currentVideoCategory) return;
+    const deltaX = e.changedTouches[0].clientX - videoSwipeStartX;
+    const threshold = 60;
+    if (Math.abs(deltaX) > threshold) {
+      navigateVideo(deltaX < 0 ? 1 : -1);
+    }
+  }, { passive: true });
+});
 
 function selectCandidate(categoryId, candidateId, cardElement) {
   selections[categoryId] = candidateId;
