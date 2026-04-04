@@ -1376,6 +1376,87 @@ body::after {
 /* ============================================================
    HATIRA KARTI SAYFASI
    ============================================================ */
+.hatira-page-notice {
+  position: relative;
+  z-index: 2;
+  padding: var(--space-sm) max(16px, env(safe-area-inset-left, 0px)) 0
+    max(16px, env(safe-area-inset-right, 0px));
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hatira-page-notice__box {
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  border-radius: var(--card-radius);
+  background: rgba(239, 68, 68, 0.07);
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.08);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.hatira-page-notice__box svg {
+  flex-shrink: 0;
+  color: #f87171;
+}
+
+.hatira-page-notice__box > div {
+  width: 100%;
+  text-align: center;
+}
+
+.hatira-page-notice__box p {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.hatira-page-notice__box p + p {
+  margin-top: 10px;
+}
+
+.hatira-page-notice__box a {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hatira-page-notice__box a:hover {
+  color: #fca5a5;
+}
+
+@media (max-width: 480px) {
+  .hatira-page-notice {
+    max-width: min(520px, 100%);
+    padding-top: 12px;
+  }
+
+  .hatira-page-notice__box {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .hatira-page-notice__box svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .hatira-page-notice__box p {
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+}
+
 .card-page {
   min-height: 100vh;
   display: flex;
