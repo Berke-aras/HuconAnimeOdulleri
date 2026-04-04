@@ -712,6 +712,9 @@ const AntifraudManager = (() => {
   async function findMatchedVoteData(deviceId, ipHash, hashes) {
     if (!hashes.audioHash || !hashes.webglHash || !hashes.fontHash) return null;
 
+    // Tam donanim imzasi (cache'den gelir, ek maliyet yok)
+    const currentHwSig = await generateHardwareSignature();
+
     // 1. Kesin DeviceId esleşmesi (Aynı tarayıcı)
     try {
       const exactQuery = await db.collection("votes")
@@ -723,7 +726,6 @@ const AntifraudManager = (() => {
       if (!exactQuery.empty) return { id: exactQuery.docs[0].id, ...exactQuery.docs[0].data() };
     } catch (e) { console.warn("Exact match query failed:", e); }
 
-    // --- Aday Havuzu (Potansiyel eslesmeleri toplayip en iyisini sececegiz) ---
     let candidates = [];
 
     // 2. Senaryo A: Donanım Kalemlerinden (Audio, WebGL, Font) sorgula
@@ -743,13 +745,22 @@ const AntifraudManager = (() => {
         if (v.voicesHash === hashes.voicesHash) matchCount++;
         if (v.localIpHash === hashes.localIpHash) matchCount++;
 
-        if (matchCount >= 3) {
-          candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
+        // hardwareSignature varsa kesin imza eslesme sarti uygula
+        if (v.hardwareSignature && currentHwSig) {
+          if (v.hardwareSignature === currentHwSig) {
+            candidates.push({ id: doc.id, ...v, _matchCount: matchCount, _sigMatch: true });
+          }
+          return; // Imza farkli → farkli cihaz, aday olarak alma
+        }
+
+        // Eski kayit (hardwareSignature yok): siki alt kosul — uclu + en az 2 ek sinyal
+        if (matchCount >= 5) {
+          candidates.push({ id: doc.id, ...v, _matchCount: matchCount, _sigMatch: false });
         }
       });
     } catch (e) { console.warn("Hardware match query failed:", e); }
 
-    // 3. Senaryo B: IP üzerinden sorgula (Donanimlar farkli olsa da IP ayni olabilir)
+    // 3. Senaryo B: IP uzerinden sorgula (Donanimlar farkli olsa da IP ayni olabilir)
     try {
       const ipQuery = await db.collection("votes")
         .where("ipHash", "==", ipHash || "none")
@@ -768,56 +779,70 @@ const AntifraudManager = (() => {
         if (v.voicesHash === hashes.voicesHash) matchCount++;
         if (v.localIpHash === hashes.localIpHash) matchCount++;
 
-        if (matchCount >= 3) {
-          candidates.push({ id: doc.id, ...v, _matchCount: matchCount });
+        // Siki esik: >= 4 VE canvasHash eslesmesi zorunlu
+        if (matchCount >= 4 && v.canvasHash === hashes.canvasHash) {
+          const sigMatch = !!(v.hardwareSignature && currentHwSig && v.hardwareSignature === currentHwSig);
+          candidates.push({ id: doc.id, ...v, _matchCount: matchCount, _sigMatch: sigMatch });
         }
       });
     } catch (e) { console.warn("IP match query failed:", e); }
 
+    if (!candidates.length) return null;
+
     // --- EN IYI ADAYI SEC (Weighted Best Candidate Selection) ---
     const targetDrift = parseFloat(getClockDrift()) || 0;
 
-    // Sinyal agirliklari (Cihazı ne kadar benzersiz kildigi)
     const weights = {
-      ip: 1.0,      // Ağ kimliği
-      webgl: 1.5,   // En güçlü donanim sinyali (GPU)
+      ip: 1.0,      // Ag kimligi
+      webgl: 1.5,   // En guclu donanim sinyali (GPU)
       canvas: 1.2,  // Hassas grafik imzasi
-      audio: 0.8,   // Sürücü bazli (Class ID)
-      localIp: 1.0, // İç ağ kimliği
+      audio: 0.8,   // Surucu bazli (Class ID)
+      localIp: 1.0, // Ic ag kimligi
       voices: 0.5,  // Yazilim bazli
       font: 0.5     // Yazilim bazli
     };
 
-    return candidates.sort((a, b) => {
-      // 1- Önce Ham Eşleşme Puanına (Match Count) bak
-      if (b._matchCount !== a._matchCount) {
-        return b._matchCount - a._matchCount;
+    const getWeightedScore = (c) => {
+      let score = (c.ipHash === ipHash ? weights.ip : 0);
+      score += (c.webglHash === hashes.webglHash ? weights.webgl : 0);
+      score += (c.canvasHash === hashes.canvasHash ? weights.canvas : 0);
+      score += (c.audioHash === hashes.audioHash ? weights.audio : 0);
+      score += (c.localIpHash === hashes.localIpHash ? weights.localIp : 0);
+      score += (c.voicesHash === hashes.voicesHash ? weights.voices : 0);
+      score += (c.fontHash === hashes.fontHash ? weights.font : 0);
+      return score;
+    };
+
+    candidates.sort((a, b) => {
+      // 0- hardwareSignature eslesen adaylar her zaman onde
+      if (a._sigMatch !== b._sigMatch) return a._sigMatch ? -1 : 1;
+
+      // 1- Ham Eslesme Puani
+      if (b._matchCount !== a._matchCount) return b._matchCount - a._matchCount;
+
+      // 2- Agirlikli Skor
+      const sA = getWeightedScore(a);
+      const sB = getWeightedScore(b);
+      if (sB !== sA) return sB - sA;
+
+      // 3- Saat Sapmasi (Drift) en yakin olana bak (Fotofinis)
+      const driftA = Math.abs((parseFloat(a.clockDrift) || 0) - targetDrift);
+      const driftB = Math.abs((parseFloat(b.clockDrift) || 0) - targetDrift);
+      return driftA - driftB;
+    });
+
+    // Belirsizlik: ust iki aday ayni gucte ve hicbiri tam imza eslesmesi degilse → yanlis kisiyi secmektense esleme yapma
+    if (candidates.length >= 2) {
+      const top = candidates[0];
+      const runner = candidates[1];
+      if (!top._sigMatch && !runner._sigMatch &&
+          top._matchCount === runner._matchCount &&
+          getWeightedScore(top) === getWeightedScore(runner)) {
+        return null;
       }
+    }
 
-      // 2- Puanlar eşitse "Ağırlıklı Skor" hesapla (Hangi sinyaller daha kaliteli?)
-      const getWeightedScore = (c) => {
-        let score = (c.ipHash === ipHash ? weights.ip : 0);
-        score += (c.webglHash === hashes.webglHash ? weights.webgl : 0);
-        score += (c.canvasHash === hashes.canvasHash ? weights.canvas : 0);
-        score += (c.audioHash === hashes.audioHash ? weights.audio : 0);
-        score += (c.localIpHash === hashes.localIpHash ? weights.localIp : 0);
-        score += (c.voicesHash === hashes.voicesHash ? weights.voices : 0);
-        score += (c.fontHash === hashes.fontHash ? weights.font : 0);
-        return score;
-      };
-
-      const scoreA = getWeightedScore(a);
-      const scoreB = getWeightedScore(b);
-
-      if (scoreB !== scoreA) {
-        return scoreB - scoreA;
-      }
-
-      // 3- Her şey eşitse Saat Sapması (Drift) en yakın olana bak (Fotofiniş)
-      const driftDiffA = Math.abs((parseFloat(a.clockDrift) || 0) - targetDrift);
-      const driftDiffB = Math.abs((parseFloat(b.clockDrift) || 0) - targetDrift);
-      return driftDiffA - driftDiffB;
-    })[0];
+    return candidates[0];
   }
 
   async function saveVoteAtomically(visitorId, selections, trustData = {}) {
