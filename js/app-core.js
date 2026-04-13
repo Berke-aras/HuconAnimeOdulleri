@@ -1009,12 +1009,14 @@ const AntifraudManager = (() => {
     if (!hardwareHashes.audioHash || !hardwareHashes.canvasHash) return { trustScore: "high", suspicionReason: null };
 
     // IP + Donanim sinyallerini kontrol et
+    // NOT: IP eslesmesi artik bloke etmiyor, sadece supheli olarak isaretleniyor
     const ipQuery = await db.collection("votes").where("ipHash", "==", ipHash || "none").limit(10).get();
 
     let maxMatch = 0;
+    let ipMatchFound = !ipQuery.empty;
     for (const doc of ipQuery.docs) {
       const v = doc.data();
-      let matchCount = 1; // IP eslesiyor
+      let matchCount = 0; // Sadece donanim sinyalleri sayiliyor (IP haric)
       if (v.audioHash === hardwareHashes.audioHash) matchCount++;
       if (v.webglHash === hardwareHashes.webglHash) matchCount++;
       if (v.fontHash === hardwareHashes.fontHash) matchCount++;
@@ -1026,7 +1028,7 @@ const AntifraudManager = (() => {
     }
 
     // IP disindaki donanim eslesmelerine de bakalim
-    // En kararlı 3 sinyal (Audio, WebGL, Font) üzerinden kontrol
+    // En kararli 3 sinyal (Audio, WebGL, Font) uzerinden kontrol
     const hardwareQuery = await db.collection("votes")
       .where("audioHash", "==", hardwareHashes.audioHash || "none_a")
       .where("webglHash", "==", hardwareHashes.webglHash || "none_w")
@@ -1035,12 +1037,9 @@ const AntifraudManager = (() => {
       .get();
 
     if (!hardwareQuery.empty) {
-      // Donanim eslesiyorsa (IP farkli olsa bile) supheli kabul et
-      // Bu adaylar icinden en yüksek matchCount'u bulmaya calis
       for (const doc of hardwareQuery.docs) {
         const v = doc.data();
-        let matchCount = (v.ipHash === ipHash) ? 1 : 0;
-        matchCount += 3; // Audio, WebGL, Font esleşti
+        let matchCount = 3; // Audio, WebGL, Font eslesti
         if (v.canvasHash === hardwareHashes.canvasHash) matchCount++;
         if (v.voicesHash === hardwareHashes.voicesHash) matchCount++;
         if (v.localIpHash === hardwareHashes.localIpHash) matchCount++;
@@ -1048,18 +1047,23 @@ const AntifraudManager = (() => {
       }
     }
 
-    // 7 sinyal üzerinden (IP + 6 Donanim)
+    // 6 donanim sinyali uzerinden (IP haric)
     if (maxMatch >= 4) {
       return { trustScore: "low", suspicionReason: "strict_hardware_match" };
     } else if (maxMatch === 3) {
-      return { trustScore: "low", suspicionReason: "3_of_7_match" };
+      return { trustScore: "low", suspicionReason: "3_of_6_hardware_match" };
     } else if (maxMatch === 2) {
+      if (ipMatchFound) {
+        return { trustScore: "high", suspicionReason: "same_network_partial_match" };
+      }
       return { trustScore: "high", suspicionReason: "possible_device_similarity" };
+    } else if (ipMatchFound && maxMatch >= 1) {
+      return { trustScore: "high", suspicionReason: "same_network_weak_match" };
     }
 
     return {
       trustScore: "high",
-      suspicionReason: null
+      suspicionReason: ipMatchFound ? "same_network_only" : null
     };
   }
 
@@ -1099,11 +1103,13 @@ const AntifraudManager = (() => {
         trustData = await checkSuspicionStatus();
       }
 
-      // Eğer trust score "low" gelirse (donanım eşleşmesi), normalde bloke ederiz.
-      // ANCAK: Revote modundaysak veya Fallback modundaysak geçişe izin veriyoruz.
+      // Eğer trust score "low" gelirse (donanım eşleşmesi), normalde bloke ederdik.
+      // YENİ KARAR: Bu durum oyu engellemeyecek, sadece Firestore'da "low" trustScore ile şüpheli işaretlenecek.
+      /*
       if (trustData.trustScore === "low" && !isRevoteMode() && !forceFallback) {
         throw new Error("Guvenlik denetimi basarisiz. Bu cihazdan artik oy kullanilamaz.");
       }
+      */
 
       const visitorId = await getVisitorId();
       const cleanedSelections = sanitizeSelections(selections);
